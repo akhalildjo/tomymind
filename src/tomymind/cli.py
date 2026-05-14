@@ -6,7 +6,8 @@ from typing import Optional
 
 import typer
 
-from .runner import SessionError, run_login, run_scrape
+from .errors import SessionError
+from .runner import run_login, run_scrape
 from .scrapers import available_scrapers, get_scraper
 
 app = typer.Typer(

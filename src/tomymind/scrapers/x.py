@@ -7,6 +7,7 @@ from urllib.parse import urlparse, urlunparse
 
 from playwright.async_api import Page
 
+from ..errors import SessionError
 from ..models import BookmarkItem
 from ._base import BaseScraper
 
@@ -40,7 +41,10 @@ class XScraper(BaseScraper):
         await page.goto(self.bookmarks_url, wait_until="domcontentloaded")
 
         if "/login" in page.url or "/i/flow/login" in page.url:
-            raise RuntimeError("X a redirigé vers /login : session expirée.")
+            raise SessionError(
+                f"Session expirée pour '{self.name}'. "
+                f"Relance : tomymind login {self.name}"
+            )
 
         try:
             await page.wait_for_selector('article[data-testid="tweet"]', timeout=20000)
@@ -100,7 +104,6 @@ class XScraper(BaseScraper):
         if not m:
             return None
         user, tweet_id = m.group(1), m.group(2)
-        # Reserved paths like /i/, /home, /messages, etc. are not real user handles.
         if user in {"i", "home", "messages", "notifications", "compose", "search"}:
-            user = "i"
+            return None
         return user, tweet_id

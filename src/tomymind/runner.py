@@ -5,12 +5,11 @@ from pathlib import Path
 
 from playwright.async_api import async_playwright
 
+from .errors import SessionError
 from .models import BookmarkItem, ScrapeResult
 from .scrapers._base import BaseScraper
 
-
-class SessionError(RuntimeError):
-    """Raised when a scraper has no active session or the session has expired."""
+__all__ = ["SessionError", "run_login", "run_scrape"]
 
 
 async def run_login(scraper: BaseScraper) -> None:
