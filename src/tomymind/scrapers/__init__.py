@@ -1,6 +1,9 @@
 from ._base import BaseScraper
+from .x import XScraper
 
-_REGISTRY: dict[str, type[BaseScraper]] = {}
+_REGISTRY: dict[str, type[BaseScraper]] = {
+    XScraper.name: XScraper,
+}
 
 
 def available_scrapers() -> list[str]:
