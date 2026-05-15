@@ -1,0 +1,30 @@
+from datetime import datetime, timezone
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class BookmarkItem(BaseModel):
+    """One bookmark discovered on a source. Stable shape across sources."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    source_item_id: str = Field(alias="sourceItemId")
+    url: HttpUrl
+    suggested_tags: list[str] = Field(default_factory=list, alias="suggestedTags")
+    raw_metadata: dict[str, Any] = Field(default_factory=dict, alias="rawMetadata")
+
+
+class ScrapeResult(BaseModel):
+    """Full output of one scraper run. Serialized as JSON in output/."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    source: str
+    scraped_at: datetime = Field(default_factory=utcnow, alias="scrapedAt")
+    item_count: int = Field(alias="itemCount")
+    items: list[BookmarkItem]
