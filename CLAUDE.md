@@ -67,7 +67,10 @@ cli.py  →  runner.py  →  Playwright  →  scraper.scrape(page)  →  output/
   `scrapers → runner` import.
 - **Scrapers must yield, not return lists.** `BaseScraper.scrape` is typed as
   `AsyncIterator[BookmarkItem]`; the runner relies on streaming for the
-  progress UI and the `--limit` early-exit.
+  progress UI and the `--limit` early-exit. If you override `scrape` with an
+  `async def` that has no `yield` in its body, it becomes a coroutine instead
+  of an async generator and the runner's `async for` crashes with
+  `TypeError: 'coroutine' object is not async iterable`.
 - **Dedup by `source_item_id` inside a single run** is the scraper's job (X
   uses a `seen_ids: set[str]`). Cross-run dedup will be handled later in
   `mymind-importer` plus mymind's native URL dedup.
@@ -89,10 +92,39 @@ For sources with strong anti-bot detection (Instagram, eventually), override
 `on_context_ready(context)` to install `tf-playwright-stealth` and throttle
 scroll/click cadence.
 
+## Debugging a flaky scraper
+
+- **Run visibly**: `uv run tomymind scrape <source> --show-browser` to watch
+  the live DOM.
+- **Pause mid-run**: drop `await page.pause()` inside `scrape()` to open the
+  Playwright Inspector with step-through and a selector picker.
+- **Selector priority**: `data-testid` > stable `aria-*` > semantic tag. Avoid
+  CSS classes (Instagram/X obfuscate them per build).
+- **Typical failure modes**:
+  - 0 items + run terminated quickly → session expired (re-run `login`) *or*
+    the top-level item selector changed (e.g. `article[data-testid="tweet"]`).
+  - `wait_for_selector` timeout → page didn't reach a logged-in state; check
+    `page.url` and screenshot via `await page.screenshot(path="dbg.png")`.
+  - Items found but URLs wrong → href parsing helper (`_parse_tweet_href` and
+    siblings) needs new edge-cases; add a unit test rather than printf.
+
+## Testing
+
+- **Do NOT write E2E tests that hit real x.com / instagram.com / pinterest.com.**
+  Live pages change, accounts get rate-limited, CI becomes red noise. Cover
+  scrapers via **unit tests on the pure parsing helpers**
+  (`_parse_tweet_href`, future `_parse_pin_link`, …) with hard-coded HREF
+  fixtures including reserved-path / weird-handle cases.
+- Tests go under `tests/` mirroring `src/tomymind/` (e.g.
+  `tests/scrapers/test_x.py`). `asyncio_mode=auto` is already set, so use
+  `async def test_*` freely.
+
 ## mymind API — context for the future `mymind-importer`
 
-When phase 2 starts, these constraints from the mymind API docs apply (not yet
-captured in source; review chat history or `https://access.mymind.com/api`):
+**API reference**: https://access.mymind.com/api
+
+When phase 2 starts, these constraints apply (not yet captured in source;
+review chat history of PR #1 or the link above for full details):
 
 - **Auth**: HS256 JWT signed per request. Header `kid`, claims `path`,
   `method` (uppercase), `iat`, `exp` (recommended `iat + 300`). Bearer in
