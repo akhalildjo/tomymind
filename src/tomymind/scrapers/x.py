@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import sys
 from collections.abc import AsyncIterator
 from urllib.parse import urlparse, urlunparse
 
@@ -49,6 +50,13 @@ class XScraper(BaseScraper):
         try:
             await page.wait_for_selector('article[data-testid="tweet"]', timeout=20000)
         except Exception:
+            print(
+                f"  warning: no tweets found within 20s on {page.url!r}. "
+                "Possible causes: empty bookmarks, expired session, or X DOM change. "
+                "Re-run `tomymind login x` to refresh the session, "
+                "or `tomymind scrape x --show-browser` to inspect visually.",
+                file=sys.stderr,
+            )
             return
 
         seen_ids: set[str] = set()
