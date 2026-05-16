@@ -1,39 +1,51 @@
 # tomymind
 
-Multi-source bookmark importer for [mymind.com](https://mymind.com). Scrapes your
-bookmarks from X, Instagram and Pinterest, then pushes them to mymind via the
-official API.
+Multi-source bookmark importer for [mymind.com](https://mymind.com). Scrapes
+your bookmarks from X, Instagram and Pinterest, then pushes them to mymind via
+the official API.
 
-> **Status — Phase 1 (scrapers).** We're validating each scraper in isolation
-> before plugging in the message broker and the mymind importer. Today only the
-> X scraper is implemented.
+> **Status.** Phase 1 (X scraper) is in. Phase 2 scaffold (NATS JetStream +
+> `mymind-importer` container) is in but inert: the importer image builds and
+> starts, but real publish/consume logic lands in follow-up PRs. Instagram and
+> Pinterest scrapers come later.
 
-## Architecture target
+## Architecture
 
 ```
 Source scrapers ──▶ NATS JetStream ──▶ mymind-importer ──▶ mymind API
-   (X · Insta ·         (queue)            (JWT signer,
-    Pinterest)                              rate limiter,
-                                            dedup)
+   (host, login           (Docker)            (Docker,
+    needs visible                              JWT signer,
+    browser)                                   rate limiter)
 ```
 
-Phase 1 keeps everything local: no broker, no Docker. Each scraper writes its
-bookmarks to a JSON file under `output/`. The importer pipeline comes in phase 2.
+The `login` flow needs a visible Chromium window, so it stays on the host. The
+`scrape` step is headless and can run either on the host (today) or in a
+container (later). The importer always runs in Docker.
 
 ## Setup
 
-Requires Python 3.12+.
+Requires Python 3.12+ and (for the Docker stack) Docker 24+ with Compose v2.
 
 ```bash
 # install uv if you don't have it: https://docs.astral.sh/uv/getting-started/installation/
-uv sync
+# All workstreams in one go:
+uv sync --extra scraper --extra importer --extra dev
 uv run playwright install chromium
 ```
 
+The base install is minimal (just `pydantic`); each role pulls its deps via an
+extra:
+
+- `scraper`: Playwright, Typer, python-dotenv — needed to run `tomymind`
+- `importer`: nats-py, httpx, PyJWT — for the `mymind_importer` service
+- `stealth`: tf-playwright-stealth — for Instagram (heavy, opt-in)
+- `dev`: pytest + ruff
+
 ## Usage
 
-Each source has the same two-step flow: log in once (manual, visible browser),
-then scrape (headless).
+### Scrape a source (host)
+
+Two-step flow: log in once (manual, visible browser), then scrape headlessly.
 
 ```bash
 # 1. Log in to a source. Opens a real Chromium window — you log in by hand,
@@ -55,6 +67,26 @@ uv run tomymind sources
 
 Sessions are stored under `sessions/<source>.json` (cookies + localStorage).
 They're gitignored. Bookmarks land under `output/<source>_bookmarks.json`.
+
+### Phase 2 stack (Docker)
+
+```bash
+# Bring up NATS JetStream (and the placeholder importer container)
+docker compose up -d
+
+# Follow logs
+docker compose logs -f importer
+
+# Stop (keeps the NATS volume so JetStream state survives restarts)
+docker compose down
+
+# Stop and wipe persisted JetStream state
+docker compose down -v
+```
+
+The importer reads its config from environment variables — copy `.env.example`
+to `.env` and fill in `MYMIND_API_KEY_ID` / `MYMIND_API_KEY_SECRET` once those
+are needed (no-op while the importer is still a placeholder).
 
 ## Output shape
 
@@ -81,10 +113,14 @@ each item to NATS instead of writing JSON.
 
 - [x] Repo skeleton, common models, CLI, base scraper runner
 - [x] **X** scraper (`/i/bookmarks` with infinite scroll)
+- [x] Phase 2 scaffold: NATS JetStream service, `mymind-importer` package +
+      Docker image, Docker Compose
+- [ ] Wire NATS publish on the scraper side (`--publish` flag) and a NATS
+      subscriber in the importer
+- [ ] `mymind-importer` business logic: HS256 JWT signer, mymind client,
+      credit-aware rate limiter, retries on 429
 - [ ] **Instagram** scraper (`/<user>/saved/`, stealth required)
 - [ ] **Pinterest** scraper (`/<user>/_saved/`)
-- [ ] `mymind-importer` service: JWT signer, credit-aware rate limiter, dedup, retries
-- [ ] NATS JetStream wiring + Docker Compose
 - [ ] Orchestrator API + minimal UI
 
 ## Notes on scraping
