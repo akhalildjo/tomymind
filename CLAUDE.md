@@ -14,6 +14,27 @@ The JSON output shape (`ScrapeResult` with camelCase aliases via Pydantic) is
 intentionally identical to the future `BookmarkDiscovered` event payload — keep
 it stable when changing models.
 
+## Portability
+
+`tomymind` must run on **Windows, macOS and Linux** — bake cross-platform
+support into every change, don't fix it after the fact:
+
+- **Paths**: always `pathlib.Path` and the `/` operator; never string-concat
+  with `/` or `\`. Always pass `encoding="utf-8"` to `read_text` / `write_text`
+  / `open` — Windows defaults to `cp1252`.
+- **Shell**: no `subprocess(..., shell=True)`, no bash-isms in Python. CLI
+  examples in README/docs must also run as-is in PowerShell (no `&&`-only
+  chains, no `$VAR` expansion that PowerShell parses differently — prefer
+  one command per line).
+- **Filesystem casing**: assume both case-sensitive (Linux, macOS-APFS) and
+  case-insensitive (Windows, macOS-default). Don't create files that differ
+  only by case.
+- **Line endings & newlines**: let Python handle them — never write `\r\n`
+  literals, never strip `\r` defensively.
+- **Tests**: no hardcoded `/tmp`, `/home/...`, `C:\...`; use `tmp_path` /
+  `Path.home()` and skip with a clear reason if a test is genuinely
+  OS-specific.
+
 ## Commands
 
 ```bash
