@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 from urllib.parse import urlparse, urlunparse
 
 from playwright.async_api import Page
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from ..errors import SessionError
 from ..models import BookmarkItem
@@ -49,7 +50,7 @@ class XScraper(BaseScraper):
 
         try:
             await page.wait_for_selector('article[data-testid="tweet"]', timeout=20000)
-        except Exception:
+        except PlaywrightTimeoutError:
             print(
                 f"  warning: no tweets found within 20s on {page.url!r}. "
                 "Possible causes: empty bookmarks, expired session, or X DOM change. "

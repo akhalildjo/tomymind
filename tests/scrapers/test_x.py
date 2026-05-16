@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from tomymind.scrapers.x import XScraper
 
@@ -93,3 +96,40 @@ class TestParseTweetHrefRejects:
         # Netloc with port doesn't match _X_HOSTS — documents current behavior.
         # Real X anchors never carry a port, so this is acceptable.
         assert parse("https://x.com:443/jack/status/12345") is None
+
+
+def _make_page(url: str = "https://x.com/i/bookmarks", *, selector_side_effect):
+    page = MagicMock()
+    page.url = url
+    page.goto = AsyncMock()
+    page.wait_for_selector = AsyncMock(side_effect=selector_side_effect)
+    return page
+
+
+class TestScrapeTimeoutDiagnostic:
+    async def test_warns_to_stderr_and_yields_nothing(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        scraper = XScraper()
+        page = _make_page(
+            selector_side_effect=PlaywrightTimeoutError("simulated timeout"),
+        )
+
+        items = [item async for item in scraper.scrape(page)]
+
+        assert items == []
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "no tweets found within 20s" in captured.err
+        assert "https://x.com/i/bookmarks" in captured.err
+        assert "tomymind login x" in captured.err
+
+    async def test_non_timeout_exception_propagates(self) -> None:
+        scraper = XScraper()
+        page = _make_page(
+            selector_side_effect=RuntimeError("browser crashed"),
+        )
+
+        with pytest.raises(RuntimeError, match="browser crashed"):
+            async for _ in scraper.scrape(page):
+                pass
