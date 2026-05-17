@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+import time
 from pathlib import Path
 
 from playwright.async_api import BrowserContext, async_playwright
@@ -165,6 +166,14 @@ async def run_import_cookies(scraper: BaseScraper) -> None:
     print(f"  Dans ton Chrome déjà connecté : F12 → Application → Cookies → https://{host}")
     print("  Copie la valeur de chaque cookie ci-dessous puis colle-la ici.\n")
 
+    # Without an explicit expires, Playwright marks the cookie as session-only
+    # and Chromium NEVER writes it to the on-disk Cookies SQLite file. So the
+    # values would be gone the next time we open the persistent profile, and
+    # the scrape would fail with "Session expirée" -- exactly the bug we hit.
+    # 30 days matches X's own auth_token lifetime; the server-side check is
+    # what actually decides if the token is still valid.
+    expires = int(time.time()) + 30 * 24 * 3600
+
     cookies_to_add: list[dict] = []
     for name, extra in scraper.cookie_import_specs.items():
         value = (await asyncio.to_thread(input, f"  {name} = ")).strip()
@@ -177,6 +186,7 @@ async def run_import_cookies(scraper: BaseScraper) -> None:
                 "domain": scraper.cookie_import_domain,
                 "path": "/",
                 "secure": True,
+                "expires": expires,
                 **extra,
             }
         )
@@ -185,9 +195,25 @@ async def run_import_cookies(scraper: BaseScraper) -> None:
     async with async_playwright() as p:
         context = await _launch_persistent(p, scraper, headless=True)
         try:
+            await scraper.on_context_ready(context)
             await context.add_cookies(cookies_to_add)
+
+            # Verify NOW, while the context is still open, that the cookies
+            # actually grant a logged-in session. If we don't, a typo or
+            # expired token only surfaces on the next `scrape` run with a
+            # confusing "Session expirée" error.
+            page = _first_page(context) or await context.new_page()
+            await scraper.on_page_ready(page)
+            await page.goto(scraper.home_url, wait_until="domcontentloaded")
+            if not await scraper.is_logged_in(page):
+                raise SessionError(
+                    f"Les cookies fournis ne donnent pas accès à '{scraper.name}'. "
+                    "Vérifie que tu as bien copié auth_token et ct0 depuis "
+                    f"un Chrome connecté à {host}, sans espaces ni guillemets."
+                )
+            print(f"\n  Session vérifiée -- tu es bien connecté à '{scraper.name}'.")
         finally:
             await context.close()
 
-    print(f"\n  Cookies enregistrés dans le profil → {scraper.session_path}")
+    print(f"  Cookies enregistrés dans le profil -> {scraper.session_path}")
     print(f"  Tu peux maintenant scraper : tomymind scrape {scraper.name}")
