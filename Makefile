@@ -35,13 +35,13 @@ endif
 
 .PHONY: help prereqs install lint test cli \
         docker-build docker-up docker-status docker-logs docker-down \
-        check login-x scrape-x
+        check login-x import-cookies-x scrape-x
 
 help:
 	@echo tomymind - local validation targets
 	@$(BLANK)
 	@echo   make prereqs        - check that python / uv / docker are installed
-	@echo   make install        - uv sync scraper+stealth+importer+dev, then playwright install chromium
+	@echo   make install        - uv sync scraper+stealth+importer+dev, then playwright install chromium + chrome
 	@echo   make lint           - ruff check and ruff format --check
 	@echo   make test           - pytest
 	@echo   make cli            - smoke test the tomymind CLI, lists sources
@@ -55,7 +55,8 @@ help:
 	@echo   make check          - run everything above in order, clean teardown at the end
 	@$(BLANK)
 	@echo   make login-x        - manual: opens visible Chromium to log into X
-	@echo   make scrape-x       - manual: scrape all bookmarks from X, needs prior login-x
+	@echo   make import-cookies-x - paste auth_token + ct0 from a logged-in Chrome, skips login
+	@echo   make scrape-x       - manual: scrape all bookmarks from X, needs prior login-x or import-cookies-x
 
 prereqs:
 	@echo == Prereqs ==
@@ -65,9 +66,10 @@ prereqs:
 	docker compose version
 
 install:
-	@echo == uv sync + playwright install chromium ==
+	@echo == uv sync + playwright install chromium + chrome ==
 	uv sync --extra scraper --extra stealth --extra importer --extra dev
 	uv run playwright install chromium
+	uv run playwright install chrome
 
 lint:
 	@echo == ruff check ==
@@ -116,6 +118,10 @@ check: prereqs install lint test cli docker-up docker-down
 login-x:
 	@echo == tomymind login x -- visible Chromium, press ENTER in this terminal once logged in ==
 	uv run tomymind login x
+
+import-cookies-x:
+	@echo == tomymind import-cookies x -- paste auth_token + ct0 from your logged-in Chrome ==
+	uv run tomymind import-cookies x
 
 scrape-x:
 	@echo == tomymind scrape x ==

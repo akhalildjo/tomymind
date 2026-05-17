@@ -10,7 +10,7 @@ from .errors import SessionError
 from .models import BookmarkItem, ScrapeResult
 from .scrapers._base import BaseScraper
 
-__all__ = ["SessionError", "run_login", "run_scrape"]
+__all__ = ["SessionError", "run_import_cookies", "run_login", "run_scrape"]
 
 # Renderer-level AutomationControlled feature is the cheap tell anti-bot
 # stacks key on. Stealth patches (per-scraper, in on_page_ready) cover the
@@ -148,3 +148,46 @@ async def run_scrape(
         encoding="utf-8",
     )
     return result
+
+
+async def run_import_cookies(scraper: BaseScraper) -> None:
+    """Seed the persistent profile with cookies copied from a logged-in browser.
+
+    Bypasses the login UI entirely — useful when the source's anti-bot stack
+    refuses to let an automated browser through the login flow but accepts
+    valid session cookies as-is.
+    """
+    if not scraper.cookie_import_specs or not scraper.cookie_import_domain:
+        raise SessionError(f"'{scraper.name}' doesn't support cookie import yet.")
+
+    host = scraper.cookie_import_domain.lstrip(".")
+    print(f"\n  Import cookies pour '{scraper.name}'.")
+    print(f"  Dans ton Chrome déjà connecté : F12 → Application → Cookies → https://{host}")
+    print("  Copie la valeur de chaque cookie ci-dessous puis colle-la ici.\n")
+
+    cookies_to_add: list[dict] = []
+    for name, extra in scraper.cookie_import_specs.items():
+        value = (await asyncio.to_thread(input, f"  {name} = ")).strip()
+        if not value:
+            raise SessionError(f"Valeur vide pour '{name}', abandon.")
+        cookies_to_add.append(
+            {
+                "name": name,
+                "value": value,
+                "domain": scraper.cookie_import_domain,
+                "path": "/",
+                "secure": True,
+                **extra,
+            }
+        )
+
+    scraper.session_path.mkdir(parents=True, exist_ok=True)
+    async with async_playwright() as p:
+        context = await _launch_persistent(p, scraper, headless=True)
+        try:
+            await context.add_cookies(cookies_to_add)
+        finally:
+            await context.close()
+
+    print(f"\n  Cookies enregistrés dans le profil → {scraper.session_path}")
+    print(f"  Tu peux maintenant scraper : tomymind scrape {scraper.name}")

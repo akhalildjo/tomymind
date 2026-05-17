@@ -6,7 +6,7 @@ from pathlib import Path
 import typer
 
 from .errors import SessionError
-from .runner import run_login, run_scrape
+from .runner import run_import_cookies, run_login, run_scrape
 from .scrapers import available_scrapers, get_scraper
 
 app = typer.Typer(
@@ -62,6 +62,21 @@ def scrape(
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     typer.echo(f"\nDone. {result.item_count} bookmarks → {out_path}")
+
+
+@app.command(
+    "import-cookies",
+    help="Paste session cookies from a logged-in browser to skip the login flow.",
+)
+def import_cookies(
+    source: str = typer.Argument(..., help=f"One of: {', '.join(available_scrapers())}"),
+):
+    scraper = _resolve_scraper(source)
+    try:
+        asyncio.run(run_import_cookies(scraper))
+    except SessionError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
 
 
 @app.command(help="List the source scrapers currently available.")

@@ -21,6 +21,12 @@ class BaseScraper(ABC):
     # Optional URL hit before login_url so the server seeds bootstrap cookies
     # (guest tokens, CSRF, etc.) that the login API expects. None = skip.
     warmup_url: str | None = None
+    # Cookies the user can paste from a logged-in browser to skip the login
+    # flow entirely. Empty dict = the scraper doesn't support cookie import.
+    # Maps cookie name to Playwright cookie attributes (httpOnly, sameSite, ...);
+    # the runner fills in domain/path/secure based on `cookie_import_domain`.
+    cookie_import_domain: str = ""
+    cookie_import_specs: dict[str, dict] = {}
 
     @property
     def session_path(self) -> Path:

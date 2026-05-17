@@ -25,6 +25,14 @@ class XScraper(BaseScraper):
     # Visiting the root first builds up guest_id / gt / ct0 cookies. Without
     # them /i/flow/login gets a 400 on onboarding/task.json.
     warmup_url = "https://x.com/"
+    # Cookies the user can paste from a logged-in Chrome to skip login.
+    # auth_token is the session bearer; ct0 is the CSRF token X embeds in
+    # every authenticated XHR. With both, X treats us as the logged-in user.
+    cookie_import_domain = ".x.com"
+    cookie_import_specs = {
+        "auth_token": {"httpOnly": True, "sameSite": "None"},
+        "ct0": {"httpOnly": False, "sameSite": "Lax"},
+    }
 
     # Stop after this many consecutive scrolls that don't reveal new content.
     _idle_scroll_limit = 5
