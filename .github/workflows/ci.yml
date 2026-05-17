@@ -2,13 +2,19 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - "release/**"
+      - "hotfix/**"
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - "release/**"
   workflow_dispatch:
 
 # Cancel in-flight runs for the same PR when a new commit is pushed; keep
-# main runs running so we never silently miss a regression on the trunk.
+# main / release / hotfix runs running so we never silently miss a regression
+# on a protected branch.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}

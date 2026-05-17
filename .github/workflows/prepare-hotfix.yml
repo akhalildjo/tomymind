@@ -1,0 +1,223 @@
+name: Prepare hotfix
+
+# Manually triggered to start an out-of-band patch off an already-released
+# version whose `release/x.y` branch is no longer maintained.
+#
+# Typical case: v0.2.0 shipped, we moved on to 0.3.0 and deleted
+# `release/0.2`, but a CVE / hot bug needs a v0.2.1 build. This workflow:
+#
+#   1. Branches `hotfix/x.y.z` off the given base tag.
+#   2. Bumps `__version__` and adds a dated entry to `CHANGELOG.md`.
+#   3. Pushes the branch.
+#
+# The maintainer then commits the actual fix on `hotfix/x.y.z`, tags
+# `vx.y.z`, and the `Release` + `backmerge` workflows pick it up.
+#
+# If the matching `release/x.y` branch IS still alive, you do NOT need
+# this workflow — just push the patch commit directly to that branch
+# and tag from there.
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_tag:
+        description: "Base tag to patch (e.g. v0.2.0)"
+        required: true
+        type: string
+      version:
+        description: "New patch version, semver MAJOR.MINOR.PATCH (e.g. 0.2.1)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    name: Create hotfix/x.y.z branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate inputs
+        shell: bash
+        env:
+          BASE_TAG: ${{ inputs.base_tag }}
+          NEW_VERSION: ${{ inputs.version }}
+        run: |
+          if ! [[ "${BASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Base tag '${BASE_TAG}' must be of the form vMAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          if ! [[ "${NEW_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version '${NEW_VERSION}' is not valid semver (MAJOR.MINOR.PATCH)"
+            exit 1
+          fi
+          BASE_VERSION="${BASE_TAG#v}"
+          BASE_MAJOR_MINOR="$(echo "${BASE_VERSION}" | cut -d. -f1,2)"
+          NEW_MAJOR_MINOR="$(echo "${NEW_VERSION}" | cut -d. -f1,2)"
+          BASE_PATCH="$(echo "${BASE_VERSION}" | cut -d. -f3)"
+          NEW_PATCH="$(echo "${NEW_VERSION}" | cut -d. -f3)"
+          if [ "${BASE_MAJOR_MINOR}" != "${NEW_MAJOR_MINOR}" ]; then
+            echo "::error::Hotfix version ${NEW_VERSION} must be on the same MAJOR.MINOR as ${BASE_TAG}"
+            exit 1
+          fi
+          if [ "${NEW_PATCH}" -le "${BASE_PATCH}" ]; then
+            echo "::error::Hotfix patch number (${NEW_PATCH}) must be greater than base patch (${BASE_PATCH})"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.base_tag }}
+          fetch-depth: 0
+
+      - name: Compute branch name
+        id: vars
+        shell: bash
+        env:
+          NEW_VERSION: ${{ inputs.version }}
+        run: |
+          BRANCH="hotfix/${NEW_VERSION}"
+          echo "version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify branch does not already exist
+        shell: bash
+        env:
+          BRANCH: ${{ steps.vars.outputs.branch }}
+        run: |
+          if git ls-remote --exit-code --heads origin "${BRANCH}" >/dev/null 2>&1; then
+            echo "::error::Branch ${BRANCH} already exists on origin. Delete it first if you want to restart the hotfix."
+            exit 1
+          fi
+
+      - name: Create hotfix branch
+        shell: bash
+        env:
+          BRANCH: ${{ steps.vars.outputs.branch }}
+        run: |
+          git checkout -b "${BRANCH}"
+
+      - name: Bump version and add changelog entry
+        shell: bash
+        env:
+          NEW_VERSION: ${{ steps.vars.outputs.version }}
+          BASE_TAG: ${{ inputs.base_tag }}
+        run: |
+          python <<'PY'
+          from __future__ import annotations
+          import datetime
+          import os
+          import pathlib
+          import re
+
+          new_version = os.environ["NEW_VERSION"]
+          base_tag = os.environ["BASE_TAG"]
+          base_version = base_tag.lstrip("v")
+          today = datetime.date.today().isoformat()
+
+          init_path = pathlib.Path("src/tomymind/__init__.py")
+          init_text = init_path.read_text(encoding="utf-8")
+          match = re.search(r'__version__\s*=\s*"([^"]+)"', init_text)
+          if not match:
+              raise SystemExit(f"Could not find __version__ in {init_path}")
+          old_version = match.group(1)
+          init_path.write_text(
+              init_text.replace(
+                  f'__version__ = "{old_version}"',
+                  f'__version__ = "{new_version}"',
+                  1,
+              ),
+              encoding="utf-8",
+          )
+          print(f"Bumped __version__: {old_version} -> {new_version}")
+
+          changelog_path = pathlib.Path("CHANGELOG.md")
+          changelog = changelog_path.read_text(encoding="utf-8")
+
+          # Insert a new dated section above the existing base version section.
+          # Heuristic: find the first "## [X.Y.Z]" header that matches the base
+          # version we branched off, and inject the new section right above it.
+          repo = "https://github.com/akhalildjo/tomymind"
+          base_header_pattern = re.compile(
+              r"^## \[" + re.escape(base_version) + r"\][^\n]*$",
+              re.MULTILINE,
+          )
+          new_section = (
+              f"## [{new_version}] — {today}\n"
+              "\n"
+              "### Fixed\n"
+              "\n"
+              "- TODO: describe the hotfix.\n"
+              "\n"
+          )
+          if not base_header_pattern.search(changelog):
+              raise SystemExit(
+                  f"Could not find '## [{base_version}]' header in CHANGELOG.md - "
+                  "add a section for the base version first."
+              )
+          changelog = base_header_pattern.sub(
+              new_section + r"\g<0>",
+              changelog,
+              count=1,
+          )
+
+          # Add a link reference for the new version.
+          new_version_link = f"[{new_version}]: {repo}/compare/{base_tag}...v{new_version}"
+          base_link_pattern = re.compile(
+              r"^\[" + re.escape(base_version) + r"\]:[^\n]*$",
+              re.MULTILINE,
+          )
+          if base_link_pattern.search(changelog):
+              changelog = base_link_pattern.sub(
+                  new_version_link + "\n" + r"\g<0>",
+                  changelog,
+                  count=1,
+              )
+          else:
+              if not changelog.endswith("\n"):
+                  changelog += "\n"
+              changelog += new_version_link + "\n"
+
+          changelog_path.write_text(changelog, encoding="utf-8")
+          print(f"CHANGELOG.md: added {new_version} section above {base_version}")
+          PY
+
+      - name: Commit and push
+        shell: bash
+        env:
+          BRANCH: ${{ steps.vars.outputs.branch }}
+          NEW_VERSION: ${{ steps.vars.outputs.version }}
+          BASE_TAG: ${{ inputs.base_tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/tomymind/__init__.py CHANGELOG.md
+          git commit -m "chore(release): scaffold hotfix v${NEW_VERSION} from ${BASE_TAG}"
+          git push -u origin "${BRANCH}"
+
+      - name: Summary
+        shell: bash
+        env:
+          BRANCH: ${{ steps.vars.outputs.branch }}
+          NEW_VERSION: ${{ steps.vars.outputs.version }}
+          BASE_TAG: ${{ inputs.base_tag }}
+        run: |
+          {
+            echo "## Hotfix scaffolded"
+            echo ""
+            echo "- Branch: \`${BRANCH}\` (off \`${BASE_TAG}\`)"
+            echo "- Version: \`${NEW_VERSION}\`"
+            echo ""
+            echo "### Next steps"
+            echo ""
+            echo "1. Commit the actual fix on \`${BRANCH}\`."
+            echo "2. Update the \`TODO\` line in the new CHANGELOG section with the real fix description."
+            echo "3. Tag and push:"
+            echo "   \`\`\`"
+            echo "   git fetch origin"
+            echo "   git checkout ${BRANCH}"
+            echo "   git tag v${NEW_VERSION}"
+            echo "   git push origin v${NEW_VERSION}"
+            echo "   \`\`\`"
+            echo "4. The \`backmerge\` workflow will open a PR back to \`main\` once the tag is published."
+          } >> "$GITHUB_STEP_SUMMARY"

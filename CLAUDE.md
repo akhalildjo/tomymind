@@ -242,8 +242,12 @@ this; this section is the spec it follows.
 ## Git / PR conventions
 
 - GitHub repo: `akhalildjo/tomymind` (this is the only repo Claude Code
-  agents working on this project are allowed to touch; human contributors
-  obviously have the same scope by convention).
+  agents working on this project are allowed to touch).
+- **External contributions are currently closed** — see the notice at
+  the top of `CONTRIBUTING.md`. Issues stay open for bug reports and
+  source requests, security advisories stay open, but external PRs are
+  not accepted right now. Agents working on this repo should still
+  follow PR-based workflows (no direct commits to `main`).
 - Keep PRs small and self-contained: one scraper / one CLI command / one
   bug fix per PR. `main` stays green.
 - An earlier iteration scaffolded a NATS JetStream + Docker importer
@@ -251,3 +255,53 @@ this; this section is the spec it follows.
   in favor of the simpler "manual CLI per source" flow you see today. If
   you find references to NATS, `mymind_importer` as a service, or Docker
   in old git history, they are intentionally removed.
+
+### Branch model (pragmatic gitflow)
+
+We use a lightweight gitflow optimized for a small project with
+infrequent releases:
+
+- **`main`** — active trunk. Feature work merges here via PR. Tags are
+  **never** placed directly on `main`.
+- **`release/x.y`** — created on demand from `main` when freezing a
+  minor version (e.g. `release/0.2` for the `0.2.x` line). All
+  `vx.y.z` tags for that minor live on this branch. The branch may
+  stay alive after the initial tag to absorb patch versions.
+- **`hotfix/x.y.z`** — created off an existing `vx.y.z` tag when the
+  matching `release/x.y` branch is gone and we need an out-of-band
+  patch. Tags `vx.y.z+1` live on this branch.
+
+Tag → branch invariant enforced by `release.yml`: `v*` tags are
+rejected if the commit isn't reachable from a `release/*` or
+`hotfix/*` branch on origin.
+
+### Release workflows (`.github/workflows/`)
+
+- **`prepare-release.yml`** (`workflow_dispatch`) — input: target
+  version. Creates `release/x.y` off `main`, bumps `__version__`,
+  promotes `[Unreleased]` in `CHANGELOG.md` to a dated section, pushes
+  the branch. Does **not** tag — the maintainer tags after review.
+- **`prepare-hotfix.yml`** (`workflow_dispatch`) — inputs: base tag +
+  new version. Creates `hotfix/x.y.z` off the tag, bumps version,
+  stubs a CHANGELOG entry. The maintainer commits the actual fix on
+  top, then tags.
+- **`release.yml`** (tag `v*` push) — verifies tag is on `release/*`
+  or `hotfix/*`, verifies the tag matches `__version__`, builds
+  sdist+wheel, publishes a GitHub Release with auto-generated notes.
+- **`backmerge.yml`** (tag `v*` push) — opens a PR from the source
+  branch back to `main`. For a `hotfix/x.y.z` tag, also opens a PR to
+  `release/x.y` if that branch still exists.
+- **`ci.yml`** — runs on push to `main`, `release/**`, `hotfix/**`,
+  and on PRs targeting `main` or `release/**`.
+
+**Important constraints when modifying these workflows:**
+
+- `release.yml` and `backmerge.yml` both need `fetch-depth: 0` to see
+  all remote branches via `git branch -r --contains`.
+- The bump-version logic uses inline Python (not `sed`) because the
+  CHANGELOG link-rewrite regex is tricky to get right portably. If
+  you touch it, mirror the change in both `prepare-release.yml` and
+  `prepare-hotfix.yml`.
+- The repo URL `https://github.com/akhalildjo/tomymind` is hardcoded
+  in both prepare workflows for the CHANGELOG link references. If the
+  repo ever moves, search for it in `.github/workflows/`.

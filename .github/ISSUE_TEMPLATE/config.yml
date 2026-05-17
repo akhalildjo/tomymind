@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Contribution status
+    url: https://github.com/akhalildjo/tomymind/blob/main/CONTRIBUTING.md
+    about: External code contributions are not open yet. Bug reports and source requests via the templates below are still welcome (triage may be slower than usual).
   - name: Question or general discussion
     url: https://github.com/akhalildjo/tomymind/discussions
     about: For questions and open-ended discussion, please use GitHub Discussions instead of opening an issue.

@@ -1,8 +1,27 @@
 # Contributing to tomymind
 
-Thanks for your interest in contributing! tomymind is a small,
-focused tool and we want to keep it that way — bug fixes, new scrapers,
-and documentation improvements are all welcome.
+> [!IMPORTANT]
+> **External contributions are not open at this time.** tomymind is still
+> being shaped by its initial maintainer and we want to settle the
+> release process, the source-coverage roadmap, and a few internal
+> conventions before opening the door. This document is kept up to date
+> so that *when* contributions open up, the guide is ready — and so the
+> maintainer follows a consistent process in the meantime.
+>
+> Until then:
+>
+> - **Bug reports and source requests are welcome** — use the
+>   [issue templates](https://github.com/akhalildjo/tomymind/issues/new/choose).
+>   They may take a while to be triaged.
+> - **Security reports are always welcome** — see [`SECURITY.md`](SECURITY.md).
+> - **Pull requests from outside the maintainer team will be closed**
+>   with a friendly note pointing at this document. Please don't take
+>   it personally — we'd just rather not leave you waiting on a review
+>   that may not come for a while.
+>
+> Follow the repo if you want a heads-up when this changes.
+
+---
 
 This guide is the short version. For deeper context on architecture,
 conventions, and the debugging playbook, see [`CLAUDE.md`](CLAUDE.md).
@@ -88,26 +107,62 @@ worked reference and [`CLAUDE.md`](CLAUDE.md) for the full contract.
 
 ---
 
-## Releasing (maintainers)
+## Release process (maintainers)
 
-Releases are tag-driven:
-
-1. Bump `__version__` in `src/tomymind/__init__.py` and move the
-   `[Unreleased]` block in `CHANGELOG.md` under the new version heading
-   with today's date.
-2. Open a PR, get it reviewed and merged to `main`.
-3. From `main`, tag and push:
-   ```bash
-   git tag v0.2.0
-   git push origin v0.2.0
-   ```
-4. The `Release` workflow verifies that the tag matches the package
-   version, builds the wheel + sdist, and publishes a GitHub Release
-   with auto-generated notes.
+tomymind follows a **pragmatic gitflow**: `main` is the active trunk,
+and `release/x.y` branches are created on-demand to stabilize a
+version. Tags `vX.Y.Z` live on `release/x.y` (or, rarely, on a
+`hotfix/x.y.z` branch for out-of-band patches off an older release).
 
 We follow [Semantic Versioning](https://semver.org/): MAJOR.MINOR.PATCH.
 Until we hit `1.0.0`, anything in MINOR may include breaking changes;
 PATCH stays backward-compatible.
+
+### Cutting a new release (`vX.Y.Z`)
+
+1. From the GitHub Actions tab, run the **Prepare release** workflow
+   with the target version (e.g. `0.2.0`). It will:
+   - Create `release/x.y` off `main`.
+   - Bump `__version__` in `src/tomymind/__init__.py`.
+   - Promote `[Unreleased]` in `CHANGELOG.md` to the new dated section.
+   - Push the branch.
+2. Review the bump commit on `release/x.y`. Push any final
+   stabilization commits on that branch (and only that branch).
+3. Tag and push:
+   ```bash
+   git fetch origin
+   git checkout release/x.y
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
+   ```
+4. The **Release** workflow verifies the tag is on `release/*` or
+   `hotfix/*`, verifies it matches `__version__`, builds the sdist +
+   wheel, and publishes a GitHub Release with auto-generated notes.
+5. The **Backmerge to main** workflow opens a PR from `release/x.y`
+   back to `main`. Merge it to bring the version bump + CHANGELOG
+   entries onto the trunk.
+
+### Patching an already-shipped minor
+
+Two cases:
+
+- **The `release/x.y` branch is still alive** (we're still supporting
+  that minor): push the fix directly to `release/x.y` and tag
+  `vX.Y.Z+1` from there. No special workflow needed.
+- **The `release/x.y` branch is gone** (we moved on): run the
+  **Prepare hotfix** workflow with the base tag (e.g. `v0.2.0`) and
+  the new version (e.g. `0.2.1`). It creates `hotfix/x.y.z` off the
+  tag, bumps the version, and stubs out a CHANGELOG entry. Commit the
+  fix, tag `vX.Y.Z`, push. The backmerge workflow opens PRs back to
+  `main` and to `release/x.y` if it still exists.
+
+### Branch protection (recommended)
+
+The release flow assumes:
+
+- `main` is protected: PR + green CI required.
+- `release/**` and `hotfix/**` are protected: PR + green CI required.
+- Only maintainers can push tags `v*`.
 
 ---
 

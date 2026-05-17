@@ -407,7 +407,7 @@ See [`CLAUDE.md`](CLAUDE.md) for the full contract and conventions, or
 [`src/tomymind/scrapers/x.py`](src/tomymind/scrapers/x.py) as a worked
 reference.
 
-PRs welcome — see [Contributing](#contributing).
+External PRs aren't open yet — see [Contributing](#contributing).
 
 ---
 
@@ -429,27 +429,27 @@ Want a source added? [Open an issue](https://github.com/akhalildjo/tomymind/issu
 
 ## Contributing
 
-Contributions are welcome — bug reports, new scrapers, doc fixes, all
-of it. The full guide lives in [`CONTRIBUTING.md`](CONTRIBUTING.md), the
-short version is:
+> [!NOTE]
+> **External code contributions aren't open yet.** tomymind is still
+> being shaped by its initial maintainer — release process, source
+> roadmap, and a few internal conventions are still settling. Pull
+> requests from outside the maintainer team will be closed with a
+> pointer to [`CONTRIBUTING.md`](CONTRIBUTING.md). This may change in
+> the future — follow the repo for a heads-up.
 
-- **First-party data only.** This tool exists to import *your* bookmarks
-  into *your* mymind library.
-- **Cross-platform.** Code must run on Windows, macOS, and Linux. CI
-  enforces this across Python 3.12, 3.13 and 3.14.
-- **No live-site E2E tests.** Test parsing helpers with fixture data.
+What you *can* do right now:
 
-Quality gates before opening a PR:
+- **Report bugs** or **request new sources** via the
+  [issue templates](https://github.com/akhalildjo/tomymind/issues/new/choose).
+  Expect a slower-than-average triage while contributions are closed.
+- **Report security issues** privately via
+  [GitHub Security Advisories](https://github.com/akhalildjo/tomymind/security/advisories/new) —
+  these are always welcome. See [`SECURITY.md`](SECURITY.md).
 
-```bash
-make lint          # ruff check + format
-make test          # pytest
-```
-
-See [`CLAUDE.md`](CLAUDE.md) for architecture, conventions, and the
-debugging playbook. Security reports go through
-[GitHub's private vulnerability reporting](https://github.com/akhalildjo/tomymind/security/advisories/new)
-— details in [`SECURITY.md`](SECURITY.md).
+For full details (including the maintainer release process and what
+contributing will look like once it opens) see
+[`CONTRIBUTING.md`](CONTRIBUTING.md). For architecture and the
+debugging playbook, see [`CLAUDE.md`](CLAUDE.md).
 
 ---
 

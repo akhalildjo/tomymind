@@ -1,8 +1,21 @@
 <!--
-Thanks for contributing to tomymind!
+============================================================================
+  NOTICE: External contributions are not open at this time.
+
+  tomymind is still being shaped by its initial maintainer. PRs from
+  outside the maintainer team will be closed with a pointer to
+  CONTRIBUTING.md. Please don't take it personally - this may change
+  in the future. Follow the repo for a heads-up.
+
+  Bug reports and source requests are welcome via issues. Security
+  reports are always welcome via GitHub Security Advisories.
+
+  Maintainers: continue with this PR template below.
+============================================================================
 
 Keep PRs small and self-contained: one scraper, one CLI command, one bug
-fix per PR. `main` stays green.
+fix per PR. `main` stays green. See CONTRIBUTING.md for the gitflow rules
+(release/* and hotfix/* branches).
 -->
 
 ## Summary
@@ -19,6 +32,16 @@ fix per PR. `main` stays green.
 - [ ] Breaking change (fix or feature that would cause existing behavior to change)
 - [ ] Documentation / DX (README, CLAUDE.md, comments, CI, Makefile)
 - [ ] Refactor (no behavior change)
+- [ ] Release / gitflow (version bump, release branch, hotfix, workflow change)
+
+## Target branch
+
+<!-- Tick one. See CONTRIBUTING.md "Release process" for the gitflow rules. -->
+
+- [ ] `main` (regular feature / fix work)
+- [ ] `release/x.y` (stabilization of a pending release)
+- [ ] `hotfix/x.y.z` (out-of-band patch on an older minor)
+- [ ] Backmerge (auto-opened by the `backmerge` workflow)
 
 ## How was this tested?
 

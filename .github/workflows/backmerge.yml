@@ -1,0 +1,167 @@
+name: Backmerge to main
+
+# Triggered automatically when a `v*` tag is pushed.
+#
+# Goal: rapatriate the version bump + CHANGELOG entries from the
+# release/hotfix branch back into `main`, so the trunk's view of
+# "what's been shipped" stays accurate.
+#
+# Behavior:
+#   - If the tag is on `release/x.y`: opens a PR `release/x.y` -> main.
+#   - If the tag is on `hotfix/x.y.z`: opens a PR `hotfix/x.y.z` -> main,
+#     and additionally `hotfix/x.y.z` -> `release/x.y` IF that release
+#     branch still exists.
+#
+# A failed merge (conflict, race) does not block the release - it just
+# leaves a PR for the maintainer to resolve.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  open-backmerge-pr:
+    name: Open backmerge PR(s)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Fetch all branches
+        shell: bash
+        run: |
+          git fetch --no-tags --prune origin '+refs/heads/*:refs/remotes/origin/*'
+
+      - name: Identify source branch(es) for backmerge
+        id: detect
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          TAG_SHA="$(git rev-parse HEAD)"
+          echo "Tag: ${TAG}  SHA: ${TAG_SHA}"
+
+          # Pick the most specific branch the tag lives on. Prefer hotfix/* over
+          # release/* (a hotfix branch is, by construction, the more specific
+          # source of truth for that patch).
+          SOURCE_BRANCH=""
+          while IFS= read -r line; do
+            line="$(echo "$line" | sed -e 's/^[[:space:]]*//' -e '/->/d')"
+            [ -z "$line" ] && continue
+            case "$line" in
+              origin/hotfix/*)
+                SOURCE_BRANCH="${line#origin/}"
+                break
+                ;;
+              origin/release/*)
+                # Remember a release/* match but keep looking for a hotfix/* one.
+                if [ -z "$SOURCE_BRANCH" ]; then
+                  SOURCE_BRANCH="${line#origin/}"
+                fi
+                ;;
+            esac
+          done < <(git branch -r --contains "$TAG_SHA")
+
+          if [ -z "$SOURCE_BRANCH" ]; then
+            echo "::warning::Tag ${TAG} is not on a release/* or hotfix/* branch; skipping backmerge."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Source branch: ${SOURCE_BRANCH}"
+          echo "source_branch=${SOURCE_BRANCH}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+          # If the source is a hotfix/x.y.z, also try to backmerge into release/x.y if it exists.
+          EXTRA_TARGET=""
+          case "$SOURCE_BRANCH" in
+            hotfix/*)
+              # Extract MAJOR.MINOR from hotfix/MAJOR.MINOR.PATCH
+              HOTFIX_VERSION="${SOURCE_BRANCH#hotfix/}"
+              MAJOR_MINOR="$(echo "$HOTFIX_VERSION" | cut -d. -f1,2)"
+              RELEASE_BRANCH="release/${MAJOR_MINOR}"
+              if git ls-remote --exit-code --heads origin "$RELEASE_BRANCH" >/dev/null 2>&1; then
+                EXTRA_TARGET="$RELEASE_BRANCH"
+                echo "Will also backmerge into ${RELEASE_BRANCH}"
+              else
+                echo "No matching ${RELEASE_BRANCH} on origin; skipping that target."
+              fi
+              ;;
+          esac
+          echo "extra_target=${EXTRA_TARGET}" >> "$GITHUB_OUTPUT"
+
+      - name: Open PR to main
+        if: steps.detect.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_BRANCH: ${{ steps.detect.outputs.source_branch }}
+          TAG: ${{ steps.detect.outputs.tag }}
+        shell: bash
+        run: |
+          TITLE="chore(backmerge): ${SOURCE_BRANCH} -> main after ${TAG}"
+          BODY=$(cat <<EOF
+          Automated backmerge after the \`${TAG}\` release was tagged on \`${SOURCE_BRANCH}\`.
+
+          Brings the version bump and \`CHANGELOG.md\` updates back to \`main\` so the trunk reflects what's been shipped.
+
+          If this PR has conflicts, resolve them locally:
+
+          \`\`\`
+          git checkout main && git pull
+          git merge --no-ff origin/${SOURCE_BRANCH}
+          \`\`\`
+          EOF
+          )
+
+          # Check if a PR is already open for this source -> main.
+          EXISTING="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "${SOURCE_BRANCH}" --base main --state open --json number --jq '.[0].number' || true)"
+          if [ -n "$EXISTING" ]; then
+            echo "PR #${EXISTING} already open for ${SOURCE_BRANCH} -> main; leaving it as-is."
+            exit 0
+          fi
+
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base main \
+            --head "${SOURCE_BRANCH}" \
+            --title "${TITLE}" \
+            --body "${BODY}"
+
+      - name: Open PR to matching release branch (hotfix case)
+        if: steps.detect.outputs.skip != 'true' && steps.detect.outputs.extra_target != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_BRANCH: ${{ steps.detect.outputs.source_branch }}
+          EXTRA_TARGET: ${{ steps.detect.outputs.extra_target }}
+          TAG: ${{ steps.detect.outputs.tag }}
+        shell: bash
+        run: |
+          TITLE="chore(backmerge): ${SOURCE_BRANCH} -> ${EXTRA_TARGET} after ${TAG}"
+          BODY=$(cat <<EOF
+          Automated backmerge of hotfix \`${TAG}\` into the matching release branch so future patches on the same minor include this fix.
+
+          If this PR has conflicts, resolve them locally:
+
+          \`\`\`
+          git checkout ${EXTRA_TARGET} && git pull
+          git merge --no-ff origin/${SOURCE_BRANCH}
+          \`\`\`
+          EOF
+          )
+
+          EXISTING="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "${SOURCE_BRANCH}" --base "${EXTRA_TARGET}" --state open --json number --jq '.[0].number' || true)"
+          if [ -n "$EXISTING" ]; then
+            echo "PR #${EXISTING} already open for ${SOURCE_BRANCH} -> ${EXTRA_TARGET}; leaving it as-is."
+            exit 0
+          fi
+
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base "${EXTRA_TARGET}" \
+            --head "${SOURCE_BRANCH}" \
+            --title "${TITLE}" \
+            --body "${BODY}"

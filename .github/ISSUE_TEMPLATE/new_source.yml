@@ -9,7 +9,12 @@ body:
         Thanks for suggesting a new source. The architecture is shaped so
         adding a source only touches `src/tomymind/scrapers/`, so the more
         you can tell us up-front about the source's structure and auth flow,
-        the faster a contributor can pick it up.
+        the easier it is to pick up later.
+
+        > **Heads-up:** external code contributions are currently closed
+        > (see [`CONTRIBUTING.md`](https://github.com/akhalildjo/tomymind/blob/main/CONTRIBUTING.md)).
+        > Source requests are still welcome — they go on the roadmap — but
+        > expect a slower-than-usual triage and no guaranteed timeline.
 
         **First-party only.** tomymind imports *your* bookmarks into *your*
         mymind library. We won't add sources that scrape other people's
