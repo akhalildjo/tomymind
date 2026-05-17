@@ -41,7 +41,7 @@ help:
 	@echo tomymind - local validation targets
 	@$(BLANK)
 	@echo   make prereqs        - check that python / uv / docker are installed
-	@echo   make install        - uv sync scraper+importer+dev, then playwright install chromium
+	@echo   make install        - uv sync scraper+stealth+importer+dev, then playwright install chromium
 	@echo   make lint           - ruff check and ruff format --check
 	@echo   make test           - pytest
 	@echo   make cli            - smoke test the tomymind CLI, lists sources
@@ -66,7 +66,7 @@ prereqs:
 
 install:
 	@echo == uv sync + playwright install chromium ==
-	uv sync --extra scraper --extra importer --extra dev
+	uv sync --extra scraper --extra stealth --extra importer --extra dev
 	uv run playwright install chromium
 
 lint:

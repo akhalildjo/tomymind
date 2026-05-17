@@ -34,5 +34,13 @@ class BaseScraper(ABC):
             yield  # makes the body a valid async generator
 
     async def on_context_ready(self, context: BrowserContext) -> None:
-        """Hook for subclasses to install stealth or set extra headers."""
+        """Hook for subclasses to set extra headers, cookies or context-wide options."""
+        return None
+
+    async def on_page_ready(self, page: Page) -> None:
+        """Hook called after the first page is created and before any navigation.
+
+        Use it for page-level patches that must be in place before the page
+        fetches any script — e.g. tf-playwright-stealth init scripts.
+        """
         return None

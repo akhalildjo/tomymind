@@ -11,16 +11,35 @@ from .scrapers._base import BaseScraper
 
 __all__ = ["SessionError", "run_login", "run_scrape"]
 
+# Disables the renderer-level AutomationControlled blink feature, which is
+# the cheap way sites like X tell a Playwright-driven Chromium from a real
+# one. Stealth patches (per-scraper, in on_context_ready) cover the rest.
+_LAUNCH_ARGS = ["--disable-blink-features=AutomationControlled"]
+
+# Realistic Chrome-on-Windows context. The UA matches what real users on
+# Win10/11 + Chrome 131 send, so X's UA sniffing finds nothing odd. Stealth
+# library handles navigator.webdriver, plugins, WebGL, etc.
+_CONTEXT_OPTIONS: dict = {
+    "viewport": {"width": 1280, "height": 800},
+    "locale": "en-US",
+    "user_agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/131.0.0.0 Safari/537.36"
+    ),
+}
+
 
 async def run_login(scraper: BaseScraper) -> None:
     """Open a non-headless browser so the user can log in, then persist the session."""
     scraper.session_path.parent.mkdir(parents=True, exist_ok=True)
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)
-        context = await browser.new_context()
+        browser = await p.chromium.launch(headless=False, args=_LAUNCH_ARGS)
+        context = await browser.new_context(**_CONTEXT_OPTIONS)
         await scraper.on_context_ready(context)
         page = await context.new_page()
+        await scraper.on_page_ready(page)
         await page.goto(scraper.login_url, wait_until="domcontentloaded")
 
         print(f"\n  Connecte-toi à '{scraper.name}' dans la fenêtre qui vient de s'ouvrir.")
@@ -54,10 +73,13 @@ async def run_scrape(
         )
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=headless)
-        context = await browser.new_context(storage_state=str(scraper.session_path))
+        browser = await p.chromium.launch(headless=headless, args=_LAUNCH_ARGS)
+        context = await browser.new_context(
+            storage_state=str(scraper.session_path), **_CONTEXT_OPTIONS
+        )
         await scraper.on_context_ready(context)
         page = await context.new_page()
+        await scraper.on_page_ready(page)
 
         await page.goto(scraper.home_url, wait_until="domcontentloaded")
         if not await scraper.is_logged_in(page):

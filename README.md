@@ -29,7 +29,7 @@ Requires Python 3.12+ and (for the Docker stack) Docker 24+ with Compose v2.
 ```bash
 # install uv if you don't have it: https://docs.astral.sh/uv/getting-started/installation/
 # All workstreams in one go:
-uv sync --extra scraper --extra importer --extra dev
+uv sync --extra scraper --extra stealth --extra importer --extra dev
 uv run playwright install chromium
 ```
 
@@ -38,7 +38,7 @@ extra:
 
 - `scraper`: Playwright, Typer, python-dotenv — needed to run `tomymind`
 - `importer`: nats-py, httpx, PyJWT — for the `mymind_importer` service
-- `stealth`: tf-playwright-stealth — for Instagram (heavy, opt-in)
+- `stealth`: tf-playwright-stealth — required for X (anti-bot), future Instagram
 - `dev`: pytest + ruff
 
 ## Usage
@@ -128,7 +128,7 @@ each item to NATS instead of writing JSON.
 - **First-party data only**: scrape your own account.
 - **Session reuse**: we only log in once per source; subsequent runs reuse the
   storage state. If a session expires, re-run `tomymind login <source>`.
-- **Anti-bot**: Instagram is the touchy one. The `stealth` extra
-  (`uv sync --extra stealth`) installs `tf-playwright-stealth`; the scraper will
-  opt into it when needed.
+- **Anti-bot**: X and Instagram both need it. The `stealth` extra
+  (`uv sync --extra stealth`) installs `tf-playwright-stealth`; the X scraper
+  raises a clear error at login time if the extra is missing.
 - **Be gentle**: scrolls are throttled. Don't parallelize runs on the same account.

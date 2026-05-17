@@ -27,6 +27,19 @@ class XScraper(BaseScraper):
     _idle_scroll_limit = 5
     _scroll_pause_sec = 1.8
 
+    async def on_page_ready(self, page: Page) -> None:
+        # X aggressively fingerprints Playwright. tf-playwright-stealth patches
+        # navigator.webdriver, plugins, languages, WebGL and other tells via an
+        # init script that runs before any page JS. Requires `--extra stealth`.
+        try:
+            from playwright_stealth import stealth_async
+        except ImportError as exc:
+            raise SessionError(
+                "X requires the 'stealth' extra to bypass anti-bot detection. "
+                "Run: uv sync --extra scraper --extra stealth"
+            ) from exc
+        await stealth_async(page)
+
     async def is_logged_in(self, page: Page) -> bool:
         try:
             await page.wait_for_selector(

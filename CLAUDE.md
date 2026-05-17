@@ -55,10 +55,9 @@ Base deps are intentionally minimal (just `pydantic`). Each role pulls in its
 own extra:
 
 ```bash
-# Dev setup (scraper + importer + test tooling)
-uv sync --extra scraper --extra importer --extra dev
+# Dev setup (scraper + stealth + importer + test tooling)
+uv sync --extra scraper --extra stealth --extra importer --extra dev
 uv run playwright install chromium
-uv sync --extra stealth      # adds tf-playwright-stealth (needed for Instagram)
 
 # Scraper CLI (registered as the `tomymind` console script — requires --extra scraper)
 uv run tomymind sources
@@ -87,7 +86,7 @@ gitignored — never commit them.
 | Extra | Purpose | Pulls in |
 |---|---|---|
 | `scraper` | running `tomymind login` / `scrape` on the host | playwright, typer, python-dotenv |
-| `stealth` | Instagram-style anti-bot evasion | tf-playwright-stealth |
+| `stealth` | anti-bot evasion (X, future Instagram) | tf-playwright-stealth |
 | `importer` | the `mymind_importer` service (runs in Docker) | nats-py, httpx, pyjwt |
 | `dev` | tests + lint | pytest, pytest-asyncio, ruff |
 
@@ -168,9 +167,11 @@ scraper (host, phase 1) ────┐    │ Docker compose (phase 2)   │
    `_REGISTRY`. `tomymind sources` will pick it up automatically.
 3. The CLI commands (`login`, `scrape`) work without any further wiring.
 
-For sources with strong anti-bot detection (Instagram, eventually), override
-`on_context_ready(context)` to install `tf-playwright-stealth` and throttle
-scroll/click cadence.
+For sources with strong anti-bot detection (X already needs it, Instagram
+will), override `on_page_ready(page)` to apply `playwright_stealth.stealth_async`
+before the first navigation, and throttle scroll/click cadence. `on_context_ready`
+is the place for context-wide things (extra headers, cookies); stealth is
+page-level because it relies on `page.add_init_script`.
 
 ## Debugging a flaky scraper
 
