@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 240" role="img" aria-label="tomymind">
+  <title>tomymind</title>
+  <desc>An orange bookmark card slotted into a deep navy library, paired with the tomymind wordmark in serif.</desc>
+
+  <defs>
+    <style><![CDATA[
+      @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&display=swap');
+      .wm { font-family: 'Cormorant Garamond', 'EB Garamond', 'Playfair Display', Georgia, 'Times New Roman', serif; }
+    ]]></style>
+  </defs>
+
+  <!-- ============ MARK ============ -->
+  <!-- A fresh bookmark (the iconic mymind orange card) arriving into your library -->
+  <g transform="translate(20, 20)">
+    <!-- Library: deep navy rounded container -->
+    <rect x="10" y="60" width="180" height="140" rx="22" fill="#0E1A2E"/>
+    <!-- Card: zima-orange bookmark slotted in from above -->
+    <rect x="62" y="10" width="76" height="155" rx="8" fill="#FF4F1F"/>
+  </g>
+
+  <!-- ============ WORDMARK ============ -->
+  <g transform="translate(255, 0)">
+    <text x="0" y="170"
+          class="wm"
+          font-size="140"
+          font-weight="500"
+          fill="#0E1A2E"
+          letter-spacing="-4">tomymind</text>
+  </g>
+</svg>

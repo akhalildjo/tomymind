@@ -1,12 +1,19 @@
-# tomymind
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo/tomymind-dark.svg">
+    <img src="assets/logo/tomymind.svg" alt="tomymind" width="440">
+  </picture>
+</h1>
 
-> Bring your scattered bookmarks home to [mymind](https://mymind.com).
+<p align="center"><em>Bring your scattered bookmarks home to <a href="https://mymind.com">mymind</a>.</em></p>
 
-[![CI](https://github.com/akhalildjo/tomymind/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/akhalildjo/tomymind/actions/workflows/ci.yml)
-[![Latest release](https://img.shields.io/github/v/release/akhalildjo/tomymind?include_prereleases&sort=semver)](https://github.com/akhalildjo/tomymind/releases)
-[![Python 3.12+](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](#requirements)
+<p align="center">
+  <a href="https://github.com/akhalildjo/tomymind/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/akhalildjo/tomymind/actions/workflows/ci.yml/badge.svg?branch=main"></a>
+  <a href="https://github.com/akhalildjo/tomymind/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/akhalildjo/tomymind?include_prereleases&sort=semver"></a>
+  <a href="https://www.python.org/downloads/"><img alt="Python 3.12+" src="https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-blue.svg"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green.svg"></a>
+  <a href="#requirements"><img alt="Platforms" src="https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg"></a>
+</p>
 
 `tomymind` is a small command-line tool that imports your bookmarks from
 other sites into your mymind library. It runs entirely on your machine,

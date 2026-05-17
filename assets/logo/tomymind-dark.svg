@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 240" role="img" aria-label="tomymind">
+  <title>tomymind</title>
+  <desc>Dark-mode variant: the tomymind logo intended for placement on dark backgrounds.</desc>
+
+  <defs>
+    <style><![CDATA[
+      @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&display=swap');
+      .wm { font-family: 'Cormorant Garamond', 'EB Garamond', 'Playfair Display', Georgia, 'Times New Roman', serif; }
+    ]]></style>
+  </defs>
+
+  <g transform="translate(20, 20)">
+    <!-- Library: cream rounded container (inverted for dark backgrounds) -->
+    <rect x="10" y="60" width="180" height="140" rx="22" fill="#FAF6F0"/>
+    <!-- Card: zima-orange — unchanged, the signature brand color -->
+    <rect x="62" y="10" width="76" height="155" rx="8" fill="#FF4F1F"/>
+  </g>
+
+  <g transform="translate(255, 0)">
+    <text x="0" y="170"
+          class="wm"
+          font-size="140"
+          font-weight="500"
+          fill="#FAF6F0"
+          letter-spacing="-4">tomymind</text>
+  </g>
+</svg>
