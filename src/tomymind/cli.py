@@ -109,7 +109,7 @@ def push(
         from .push import run_push
     except ImportError as exc:
         typer.echo(
-            f"error: missing dep ({exc}). Run: uv sync --extra scraper --extra importer",
+            f"error: missing dep ({exc}). Run: uv sync --extra scraper --extra push",
             err=True,
         )
         raise typer.Exit(code=2) from exc

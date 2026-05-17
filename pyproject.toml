@@ -16,8 +16,7 @@ scraper = [
     "python-dotenv>=1.0",
 ]
 stealth = ["tf-playwright-stealth>=1.1.0"]
-importer = [
-    "nats-py>=2.9",
+push = [
     "httpx>=0.27",
     "pyjwt>=2.9",
 ]
@@ -35,7 +34,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/tomymind", "src/mymind_importer"]
+packages = ["src/tomymind"]
 
 [tool.ruff]
 line-length = 100

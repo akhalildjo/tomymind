@@ -195,15 +195,6 @@ wheels = [
 ]
 
 [[package]]
-name = "nats-py"
-version = "2.14.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/c3/f8/b956c4621ba88748ed707c52e69f95b7a50c8914e750edca59a5bef84a76/nats_py-2.14.0.tar.gz", hash = "sha256:4ed02cb8e3b55c68074a063aa2687087115d805d1513297da90cb2068fb07bed", size = 120751, upload-time = "2026-02-23T22:44:58.988Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/f9/39/0e87753df1072254bac190b33ed34b264f28f6aa9bea0f01b7e818071756/nats_py-2.14.0-py3-none-any.whl", hash = "sha256:4116f5d2233ce16e63c3d5538fa40a5e207f75fcf42a741773929ddf1e29d19d", size = 82259, upload-time = "2026-02-23T22:45:00.152Z" },
-]
-
-[[package]]
 name = "packaging"
 version = "26.2"
 source = { registry = "https://pypi.org/simple" }
@@ -472,9 +463,8 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "ruff" },
 ]
-importer = [
+push = [
     { name = "httpx" },
-    { name = "nats-py" },
     { name = "pyjwt" },
 ]
 scraper = [
@@ -488,11 +478,10 @@ stealth = [
 
 [package.metadata]
 requires-dist = [
-    { name = "httpx", marker = "extra == 'importer'", specifier = ">=0.27" },
-    { name = "nats-py", marker = "extra == 'importer'", specifier = ">=2.9" },
+    { name = "httpx", marker = "extra == 'push'", specifier = ">=0.27" },
     { name = "playwright", marker = "extra == 'scraper'", specifier = ">=1.49" },
     { name = "pydantic", specifier = ">=2.9" },
-    { name = "pyjwt", marker = "extra == 'importer'", specifier = ">=2.9" },
+    { name = "pyjwt", marker = "extra == 'push'", specifier = ">=2.9" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24" },
     { name = "python-dotenv", marker = "extra == 'scraper'", specifier = ">=1.0" },
@@ -500,7 +489,7 @@ requires-dist = [
     { name = "tf-playwright-stealth", marker = "extra == 'stealth'", specifier = ">=1.1.0" },
     { name = "typer", marker = "extra == 'scraper'", specifier = ">=0.13" },
 ]
-provides-extras = ["scraper", "stealth", "importer", "dev"]
+provides-extras = ["scraper", "stealth", "push", "dev"]
 
 [[package]]
 name = "typer"
