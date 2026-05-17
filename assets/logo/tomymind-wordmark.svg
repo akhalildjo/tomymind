@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 750 200" role="img" aria-label="tomymind">
+  <title>tomymind wordmark</title>
+  <desc>The tomymind wordmark in serif. A subtle orange tittle accents the i of "mind".</desc>
+
+  <defs>
+    <style><![CDATA[
+      @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&display=swap');
+      .wm { font-family: 'Cormorant Garamond', 'EB Garamond', 'Playfair Display', Georgia, 'Times New Roman', serif; }
+    ]]></style>
+  </defs>
+
+  <text x="20" y="150"
+        class="wm"
+        font-size="140"
+        font-weight="500"
+        fill="#0E1A2E"
+        letter-spacing="-4">tomymind</text>
+</svg>
