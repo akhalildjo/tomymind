@@ -1,7 +1,12 @@
 name: Release
 
-# Triggered when a maintainer pushes a `v*` tag (e.g. `v0.2.0`) on main:
-#   git tag v0.2.0 && git push origin v0.2.0
+# Triggered when a maintainer pushes a `v*` tag (e.g. `v0.2.0`).
+#
+# In the pragmatic gitflow we follow, tags must live on a `release/x.y`
+# branch (initial release of a minor + subsequent patches on the same
+# minor) or a `hotfix/x.y.z` branch (out-of-band patch off an older
+# release). Tagging directly off `main` is rejected so we never ship
+# a version that hasn't been through a stabilization branch.
 #
 # The job verifies that the tag matches the package version declared in
 # src/tomymind/__init__.py before building, so a typo in either place
@@ -21,6 +26,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          # Full history so we can resolve which branch contains the tag.
+          fetch-depth: 0
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -30,6 +38,21 @@ jobs:
 
       - name: Set up Python
         run: uv python install 3.12
+
+      - name: Verify tag is on a release/* or hotfix/* branch
+        shell: bash
+        run: |
+          TAG_SHA="$(git rev-parse HEAD)"
+          # Fetch every remote branch so `git branch -r --contains` sees
+          # release/* and hotfix/* even if the runner only cloned the tag ref.
+          git fetch --no-tags --prune origin '+refs/heads/*:refs/remotes/origin/*'
+          BRANCHES="$(git branch -r --contains "$TAG_SHA" | sed -e 's/^[[:space:]]*//' -e '/->/d')"
+          echo "Branches containing $TAG_SHA:"
+          echo "$BRANCHES"
+          if ! echo "$BRANCHES" | grep -qE '^origin/(release|hotfix)/'; then
+            echo "::error::Tag ${GITHUB_REF#refs/tags/} must be on a release/x.y or hotfix/x.y.z branch. Found: $BRANCHES"
+            exit 1
+          fi
 
       - name: Verify tag matches package version
         shell: bash
