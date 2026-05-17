@@ -119,8 +119,8 @@ def push(
     secret = os.environ.get("MYMIND_API_KEY_SECRET")
     if not kid or not secret:
         typer.echo(
-            "error: MYMIND_API_KEY_ID et MYMIND_API_KEY_SECRET doivent être "
-            "définis (copie .env.example en .env et remplis-les).",
+            "error: MYMIND_API_KEY_ID and MYMIND_API_KEY_SECRET must be set "
+            "(copy .env.example to .env and fill them in).",
             err=True,
         )
         raise typer.Exit(code=2)

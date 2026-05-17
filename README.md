@@ -249,12 +249,12 @@ make push-x
 ```
 
 ```
-  412 scrapés, 0 déjà pushés, 412 à envoyer.
+  412 scraped, 0 already pushed, 412 to send.
   [   1/412] NEW     https://x.com/jack/status/1234567890
   [   2/412] NEW     https://x.com/openai/status/1234567891
   [   3/412] EXISTED https://x.com/somefriend/status/9999999
   …
-  Done. 408 créés, 3 déjà chez mymind, 1 échec.
+  Done. 408 created, 3 already in mymind, 1 failed.
 ```
 
 Each line tells you what happened:
@@ -355,7 +355,7 @@ Chromium. If you want the warning gone, install real Google Chrome from
 </details>
 
 <details>
-<summary><b>"MYMIND_API_KEY_ID et MYMIND_API_KEY_SECRET doivent être définis"</b></summary>
+<summary><b>"MYMIND_API_KEY_ID and MYMIND_API_KEY_SECRET must be set"</b></summary>
 
 You haven't created `.env` yet, or the values are blank. See
 [Configuration](#configuration).
