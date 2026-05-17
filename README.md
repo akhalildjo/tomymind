@@ -28,6 +28,12 @@ roadmap.
 > This is a **community project**, not an official mymind product. It
 > talks to the [public mymind API](https://access.mymind.com/api) using
 > your own credentials. No affiliation, no endorsement.
+>
+> **Use is at your own risk.** Each source has its own Terms of Service,
+> and automated access may not be permitted on every platform. Only run
+> `tomymind` with accounts you own, only to export your own bookmarks,
+> and make sure your usage complies with each service's ToS. The tool is
+> provided "as is" without warranty — see [LICENSE](LICENSE).
 
 ---
 
@@ -480,5 +486,5 @@ MIT — see [LICENSE](LICENSE).
 ---
 
 <sub>Made by and for the mymind community. mymind® is a trademark of
-[mymind GmbH](https://mymind.com). This project is not affiliated with,
-endorsed by, or sponsored by mymind.</sub>
+[mymind GmbH](https://mymind.com); X® is a trademark of X Corp. This
+project is not affiliated with, endorsed by, or sponsored by either.</sub>
