@@ -75,7 +75,7 @@ jobs:
         run: uv sync --python ${{ matrix.python-version }} --extra scraper --extra stealth --extra push --extra dev
 
       - name: Run pytest
-        run: uv run pytest -v
+        run: uv run pytest -v --cov=tomymind --cov-report=term-missing
 
       - name: CLI smoke test (sources)
         run: uv run tomymind sources

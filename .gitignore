@@ -13,6 +13,9 @@ build/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
 
 # uv
 .python-version
@@ -25,7 +28,7 @@ build/
 # Sessions Playwright (persistent Chrome profile per source)
 sessions/*
 
-# Outputs scrapés
+# Scraped bookmarks
 output/*.json
 output/*.jsonl
 

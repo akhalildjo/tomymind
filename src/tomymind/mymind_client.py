@@ -18,10 +18,11 @@ from dataclasses import dataclass
 import httpx
 import jwt as pyjwt
 
+from . import __version__
 from .errors import SessionError
 
 DEFAULT_BASE_URL = "https://api.mymind.com"
-_USER_AGENT = "tomymind/0.1 (https://github.com/akhalildjo/tomymind)"
+_USER_AGENT = f"tomymind/{__version__} (https://github.com/akhalildjo/tomymind)"
 _DEFAULT_TTL_SEC = 300
 
 
