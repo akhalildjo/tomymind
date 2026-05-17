@@ -120,7 +120,23 @@ That's the whole thing.
   `scoop install make`. Skip it if you prefer typing the full
   `uv run tomymind …` commands.
 
-Runs on Windows, macOS, and Linux.
+### Tested on
+
+CI runs lint + the full test suite on every push, across the matrix
+below. The pure helpers and mocked plumbing are exercised on each cell;
+the real Chromium / real mymind paths aren't E2E-tested by design (see
+[Roadmap → Test coverage](#test-coverage) for the rationale).
+
+| OS | Python | Status |
+|---|---|---|
+| Linux | 3.12 / 3.13 / 3.14 | ✓ Daily-driven by the maintainer |
+| macOS | 3.12 / 3.13 / 3.14 | ✓ CI-validated, not daily-driven — field reports welcome |
+| Windows | 3.12 / 3.13 / 3.14 | ✓ CI-validated, not daily-driven — field reports especially welcome |
+
+If something works for you (or breaks in an interesting way), please
+share via [Discussions](https://github.com/akhalildjo/tomymind/discussions)
+or an [issue](https://github.com/akhalildjo/tomymind/issues/new/choose) —
+that's how we'll prioritize the remaining test gaps.
 
 ---
 

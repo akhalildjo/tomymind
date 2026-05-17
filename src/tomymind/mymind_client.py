@@ -114,12 +114,14 @@ class MymindClient:
         *,
         base_url: str = DEFAULT_BASE_URL,
         timeout_sec: float = 30.0,
+        transport: httpx.AsyncBaseTransport | None = None,
     ):
         self._creds = creds
         self._http = httpx.AsyncClient(
             base_url=base_url,
             timeout=timeout_sec,
             headers={"User-Agent": _USER_AGENT},
+            transport=transport,
         )
 
     async def __aenter__(self) -> MymindClient:
