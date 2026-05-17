@@ -1,13 +1,49 @@
 [project]
 name = "tomymind"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Multi-source bookmark importer for mymind.com"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
+authors = [
+    { name = "tomymind contributors" },
+]
+keywords = [
+    "mymind",
+    "bookmarks",
+    "importer",
+    "scraper",
+    "playwright",
+    "twitter",
+    "x",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Internet :: WWW/HTTP :: Browsers",
+    "Topic :: Utilities",
+    "Typing :: Typed",
+]
 dependencies = [
     "pydantic>=2.9",
 ]
+
+[project.urls]
+Homepage = "https://github.com/akhalildjo/tomymind"
+Repository = "https://github.com/akhalildjo/tomymind"
+Issues = "https://github.com/akhalildjo/tomymind/issues"
+Changelog = "https://github.com/akhalildjo/tomymind/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 scraper = [
@@ -32,6 +68,12 @@ tomymind = "tomymind.cli:app"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# Single source of truth for the version: src/tomymind/__init__.py.
+# Bumping that file is enough — hatchling picks it up at build time and
+# the release workflow verifies the git tag matches it before publishing.
+[tool.hatch.version]
+path = "src/tomymind/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/tomymind"]

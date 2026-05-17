@@ -38,8 +38,8 @@ class MymindCreds:
             return base64.b64decode(self.secret_b64, validate=True)
         except (ValueError, base64.binascii.Error) as exc:
             raise SessionError(
-                "MYMIND_SECRET doit être en base64 (la valeur copiée depuis "
-                "ton dashboard mymind, qui finit généralement par '=')."
+                "MYMIND_SECRET must be base64 (the value copied from your "
+                "mymind dashboard, which typically ends with '=')."
             ) from exc
 
 

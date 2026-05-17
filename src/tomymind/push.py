@@ -43,8 +43,8 @@ async def run_push(
     """Push pending bookmarks. Returns (created, existed, failed) counts."""
     if not input_path.exists():
         raise SessionError(
-            f"Aucun bookmark scrapé pour '{source}' à {input_path}. "
-            f"Lance d'abord : tomymind scrape {source}"
+            f"No scraped bookmarks for '{source}' at {input_path}. "
+            f"Run first: tomymind scrape {source}"
         )
 
     result = ScrapeResult.model_validate_json(input_path.read_text(encoding="utf-8"))
@@ -52,8 +52,8 @@ async def run_push(
     pending = [it for it in result.items if it.source_item_id not in already_pushed]
 
     print(
-        f"  {len(result.items)} scrapés, {len(already_pushed)} déjà pushés, "
-        f"{len(pending)} à envoyer."
+        f"  {len(result.items)} scraped, {len(already_pushed)} already pushed, "
+        f"{len(pending)} to send."
     )
     if not pending:
         return 0, 0, 0
@@ -85,5 +85,5 @@ async def run_push(
                 already_pushed.add(item.source_item_id)
                 save_ledger(ledger_path, already_pushed)
 
-    print(f"\n  Done. {created} créés, {existed} déjà chez mymind, {failed} échecs.")
+    print(f"\n  Done. {created} created, {existed} already in mymind, {failed} failed.")
     return created, existed, failed

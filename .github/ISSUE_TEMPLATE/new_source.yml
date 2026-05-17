@@ -1,0 +1,79 @@
+name: Request a new source
+description: Suggest a new bookmark source for tomymind to support (Instagram, Pinterest, YouTube, etc.).
+title: "[source] add support for "
+labels: ["enhancement", "new-source"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new source. The architecture is shaped so
+        adding a source only touches `src/tomymind/scrapers/`, so the more
+        you can tell us up-front about the source's structure and auth flow,
+        the faster a contributor can pick it up.
+
+        **First-party only.** tomymind imports *your* bookmarks into *your*
+        mymind library. We won't add sources that scrape other people's
+        content, search results, or anything not behind your own login.
+
+  - type: input
+    id: source-name
+    attributes:
+      label: Source name
+      placeholder: e.g. Pinterest
+    validations:
+      required: true
+
+  - type: input
+    id: source-url
+    attributes:
+      label: Source URL
+      placeholder: e.g. https://pinterest.com
+    validations:
+      required: true
+
+  - type: input
+    id: bookmarks-page-url
+    attributes:
+      label: URL of your bookmarks/saved page
+      description: The logged-in URL you'd hit in your own browser to see the items you want imported.
+      placeholder: e.g. https://pinterest.com/yourname/_saved/
+    validations:
+      required: true
+
+  - type: textarea
+    id: content-type
+    attributes:
+      label: What gets imported?
+      description: What URL ends up in mymind for each bookmark? The pin itself, the source link, both?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: auth-flow
+    attributes:
+      label: Authentication flow
+      description: How does login work? This decides whether the scraper can use `tomymind login` or needs the cookie-import path.
+      options:
+        - Automated login likely works (regular email/password form, no captcha/2FA wall for headless browsers)
+        - Probably needs cookie-import (anti-bot blocks headless login)
+        - I don't know
+    validations:
+      required: true
+
+  - type: textarea
+    id: anti-bot
+    attributes:
+      label: Anti-bot considerations
+      description: Anything you know about the source's anti-automation stack (Cloudflare, hCaptcha, Datadome, JS challenges, rate limits, ...).
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Confirmations
+      options:
+        - label: This is for importing my own saved content, not other people's.
+          required: true
+        - label: I searched existing issues and did not find a duplicate request for this source.
+          required: true

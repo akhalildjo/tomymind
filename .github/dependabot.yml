@@ -1,0 +1,54 @@
+# Dependabot keeps both Python dependencies (pyproject.toml + uv.lock) and
+# GitHub Actions versions fresh. Updates land as small, individually
+# reviewable PRs so a regression can be reverted in isolation.
+#
+# Docs: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+
+version: 2
+updates:
+  # Python dependencies (PEP 621 pyproject.toml + uv lockfile).
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    groups:
+      # Bundle dev tooling so we don't get five separate PRs every week.
+      dev-tooling:
+        patterns:
+          - "ruff"
+          - "pytest*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions versions in .github/workflows/*.yml.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    groups:
+      # All Action bumps in one PR — they always need to be reviewed together
+      # since workflows compose them.
+      actions:
+        patterns:
+          - "*"

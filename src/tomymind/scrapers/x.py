@@ -66,7 +66,7 @@ class XScraper(BaseScraper):
 
         if "/login" in page.url or "/i/flow/login" in page.url:
             raise SessionError(
-                f"Session expirée pour '{self.name}'. Relance : tomymind login {self.name}"
+                f"Session expired for '{self.name}'. Re-run: tomymind login {self.name}"
             )
 
         try:
