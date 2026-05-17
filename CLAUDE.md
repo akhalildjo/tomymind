@@ -5,28 +5,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project state
 
 `tomymind` is a multi-source bookmark importer for [mymind.com](https://mymind.com).
-Target architecture is microservices: source scrapers → NATS JetStream →
-`mymind-importer` → mymind API.
+Everything runs on the host as manually-triggered CLI commands -- no broker,
+no daemon, no Docker. The three-step user flow per source is:
 
-**Status:**
-- **Phase 1 — scrapers (done for X):** each scraper writes its output to a
-  JSON file under `output/`. Login flow runs on the host (visible Chromium);
-  scrape runs headless.
-- **Phase 2 — Docker stack (scaffold only):** `docker-compose.yml` brings up
-  NATS JetStream and the `mymind-importer` container. The importer image
-  builds and starts but currently runs an inert placeholder — the NATS
-  consumer and the mymind client land in follow-up PRs.
+1. **Get a session** -- either `tomymind login <source>` (visible Chromium,
+   manual login) or `tomymind import-cookies <source>` (paste session cookies
+   from an already-logged-in browser, faster and dodges anti-bot stacks that
+   refuse automated browsers).
+2. **Scrape** -- `tomymind scrape <source>` writes
+   `output/<source>_bookmarks.json` headlessly.
+3. **Push** -- `tomymind push <source>` reads that JSON, POSTs each URL to
+   `https://api.mymind.com/objects` with a per-request HS256 JWT, writes a
+   ledger of pushed IDs so Ctrl+C is resumable.
 
-The JSON output shape (`ScrapeResult` with camelCase aliases via Pydantic) is
-intentionally identical to the future `BookmarkDiscovered` event payload —
-keep it stable when changing models.
+Sources today: **X**. The architecture is shaped so adding new sources only
+touches `src/tomymind/scrapers/`.
 
-**Login stays on the host, period.** The `tomymind login` flow needs a
+**Login stays a manual host operation, period.** The login flow needs a
 visible Chromium window so the user can type credentials and clear any
-2FA / captcha. Don't try to dockerize this — GUI-in-Docker is platform
-hostile (X11 forwarding on Linux, XQuartz on macOS, WSLg on Win11). The
-scrape step is already headless and is the only piece that benefits from a
-container.
+2FA / captcha. The cookie-import path skips Chromium entirely for sources
+where the login UI refuses automation (X's case).
 
 ## Portability
 
@@ -55,22 +53,16 @@ Base deps are intentionally minimal (just `pydantic`). Each role pulls in its
 own extra:
 
 ```bash
-# Dev setup (scraper + importer + test tooling)
-uv sync --extra scraper --extra importer --extra dev
+# Dev setup
+uv sync --extra scraper --extra stealth --extra push --extra dev
 uv run playwright install chromium
-uv sync --extra stealth      # adds tf-playwright-stealth (needed for Instagram)
 
-# Scraper CLI (registered as the `tomymind` console script — requires --extra scraper)
+# `tomymind` is the only console script. All commands are host-side, manual.
 uv run tomymind sources
-uv run tomymind login <source>              # opens visible Chromium, user logs in by hand, ENTER to save
+uv run tomymind login <source>              # visible Chromium, user logs in, ENTER to save
+uv run tomymind import-cookies <source>     # paste session cookies, no UI login
 uv run tomymind scrape <source> [--limit N] [--show-browser] [--output PATH]
-
-# Docker stack (phase 2: NATS JetStream + mymind-importer)
-docker compose up -d nats                   # broker only
-docker compose up -d                        # broker + importer (placeholder for now)
-docker compose logs -f importer
-docker compose down                         # stop services (keeps the NATS volume)
-docker compose down -v                      # also drop persisted JetStream state
+uv run tomymind push <source> [--input PATH] [--ledger PATH]
 
 # Quality gates
 uv run ruff check .
@@ -79,65 +71,68 @@ uv run pytest                # asyncio_mode=auto is set in pyproject.toml
 uv run pytest path/to/test_file.py::test_name -v
 ```
 
-`sessions/<source>.json` (Playwright `storage_state`) and `output/*.json` are
-gitignored — never commit them.
+`sessions/<source>/` (persistent Chrome user-data dir, drives
+`launch_persistent_context`), `output/*.json` (scraped bookmarks), and
+`output/.pushed_<source>.json` (push ledger) are gitignored -- never commit
+them. `.env` is gitignored too; `.env.example` ships the template.
 
 ### pyproject extras at a glance
 
 | Extra | Purpose | Pulls in |
 |---|---|---|
-| `scraper` | running `tomymind login` / `scrape` on the host | playwright, typer, python-dotenv |
-| `stealth` | Instagram-style anti-bot evasion | tf-playwright-stealth |
-| `importer` | the `mymind_importer` service (runs in Docker) | nats-py, httpx, pyjwt |
+| `scraper` | `tomymind login` / `import-cookies` / `scrape` | playwright, typer, python-dotenv |
+| `stealth` | anti-bot evasion (X, future Instagram) | tf-playwright-stealth |
+| `push` | `tomymind push` (mymind API client + JWT signing) | httpx, pyjwt |
 | `dev` | tests + lint | pytest, pytest-asyncio, ruff |
-
-The Docker image for `mymind-importer` installs **only** `--extra importer`
-so Playwright + Chromium (~1 GB) stay out of that image.
 
 ## Architecture
 
 ### Call flow
 
-Phase 1 (scraper, runs on the host):
+Everything is one process per CLI invocation, all on the host:
 
 ```
-cli.py  →  runner.py  →  Playwright  →  scraper.scrape(page)  →  output/<source>.json
-                ↑              ↑
-                │              └── BaseScraper subclass picked from
-                │                   scrapers/__init__._REGISTRY
-                └── loads sessions/<source>.json (storage_state)
-```
+   cli.py  ──▶  runner.py  ──▶  Playwright  ──▶  scraper.scrape(page)  ──▶  output/<source>_bookmarks.json
+                    ↑                ↑
+                    │                └── BaseScraper subclass picked from
+                    │                     scrapers/__init__._REGISTRY
+                    └── loads sessions/<source>/ (persistent Chrome profile)
 
-Phase 2 (importer, runs in Docker — scaffold only, NATS publish/consume
-TBD in follow-up PRs):
-
-```
-                                 ┌────────────────────────────┐
-scraper (host, phase 1) ────┐    │ Docker compose (phase 2)   │
-                            ├──▶ │   NATS JetStream service   │
-                            │    │            │               │
-                            │    │            ▼               │
-                            │    │   mymind-importer service  │ ──▶ mymind API
-                            │    │   (JWT signer, rate-limit) │
-                            │    └────────────────────────────┘
-                            │
-                            └── For now scrapers still write output/<source>.json;
-                                PR #2 adds a `--publish` flag that emits
-                                `bookmarks.discovered.<source>` events to NATS.
+   cli.py  ──▶  push.py  ──▶  mymind_client.py  ──▶  POST https://api.mymind.com/objects
+                  ↑                ↑                    (HS256 JWT per request,
+                  │                │                     429 retry with RateLimit-aware sleep,
+                  │                │                     5xx retry with backoff)
+                  │                └── output/.pushed_<source>.json (ledger, rewritten after
+                  │                     every successful 200/201 so Ctrl+C is resumable)
+                  └── output/<source>_bookmarks.json
 ```
 
 - `cli.py` parses args and resolves the scraper via `scrapers.get_scraper(name)`.
-- `runner.run_login` opens a **non-headless** browser, awaits stdin on a worker
-  thread, then calls `scraper.is_logged_in(page)` against `scraper.home_url`
-  before persisting `storage_state`.
-- `runner.run_scrape` loads the saved `storage_state`, navigates to `home_url`,
+- `runner.run_login` opens a **non-headless** browser via
+  `launch_persistent_context` (prefers system Chrome via `channel="chrome"`,
+  falls back to bundled Chromium), awaits stdin on a worker thread, then
+  calls `scraper.is_logged_in(page)` against `scraper.home_url`. The profile
+  dir at `sessions/<source>/` persists on its own — no explicit
+  `storage_state` dump needed.
+- `runner.run_import_cookies` is the cookie-paste alternative: prompts for the
+  source's `cookie_import_specs` (e.g. X's `auth_token` + `ct0`), injects them
+  into the persistent profile with a 30-day `expires` (without it Chromium
+  treats them as session cookies and never writes them to disk), then
+  verifies `is_logged_in` before exiting so a wrong/expired token surfaces
+  immediately instead of at the next scrape.
+- `runner.run_scrape` reopens the same persistent profile, navigates to `home_url`,
   re-checks `is_logged_in`, then iterates `scraper.scrape(page, limit)`. Items
   are streamed (`async for`) so progress is visible and the run can stop on
   `--limit`.
-- `src/mymind_importer/__main__.py` is the importer entry point — currently a
-  signal-aware placeholder so `docker compose up importer` stays alive. Real
-  logic (NATS subscribe → JWT-signed `POST /objects` → 429 back-off) goes
-  here in subsequent PRs.
+- `push.run_push` reads the scrape JSON, filters by the local ledger, and
+  hands each remaining item to `mymind_client.MymindClient.create_object`.
+  No cross-mymind dedup: we rely on mymind's native server-side dedup (URL
+  already present → `200 OK`, refreshes `bumped`) as the safety net. The
+  ledger only protects against re-pushing within a single user session.
+- `mymind_client.sign_request` builds a per-request bearer JWT (kid header
+  + path/method/iat/exp claims, 5-min TTL). The secret is base64-decoded
+  to bytes once per call. See `## mymind API` below for the rate-limit
+  contract the client honors.
 
 ### Key conventions
 
@@ -152,8 +147,9 @@ scraper (host, phase 1) ────┐    │ Docker compose (phase 2)   │
   of an async generator and the runner's `async for` crashes with
   `TypeError: 'coroutine' object is not async iterable`.
 - **Dedup by `source_item_id` inside a single run** is the scraper's job (X
-  uses a `seen_ids: set[str]`). Cross-run dedup will be handled later in
-  `mymind-importer` plus mymind's native URL dedup.
+  uses a `seen_ids: set[str]`). Cross-run dedup at push time is handled by
+  the local ledger (`output/.pushed_<source>.json`) plus mymind's native
+  URL dedup.
 - **Idle-scroll termination**: infinite-scroll scrapers stop after N
   consecutive scrolls that reveal no new items *and* no height change. See
   `XScraper._idle_scroll_limit` for the X tuning.
@@ -168,9 +164,11 @@ scraper (host, phase 1) ────┐    │ Docker compose (phase 2)   │
    `_REGISTRY`. `tomymind sources` will pick it up automatically.
 3. The CLI commands (`login`, `scrape`) work without any further wiring.
 
-For sources with strong anti-bot detection (Instagram, eventually), override
-`on_context_ready(context)` to install `tf-playwright-stealth` and throttle
-scroll/click cadence.
+For sources with strong anti-bot detection (X already needs it, Instagram
+will), override `on_page_ready(page)` to apply `playwright_stealth.stealth_async`
+before the first navigation, and throttle scroll/click cadence. `on_context_ready`
+is the place for context-wide things (extra headers, cookies); stealth is
+page-level because it relies on `page.add_init_script`.
 
 ## Debugging a flaky scraper
 
@@ -199,17 +197,22 @@ scroll/click cadence.
   `tests/scrapers/test_x.py`). `asyncio_mode=auto` is already set, so use
   `async def test_*` freely.
 
-## mymind API — context for `mymind-importer`
+## mymind API
 
-**API reference**: https://access.mymind.com/api (see `/api/objects` for the
-endpoint that creates a bookmark from a URL).
+**API reference**: https://access.mymind.com/api (docs). Base URL for
+requests is `https://api.mymind.com` (override via `MYMIND_API_BASE` env
+var if pointing at staging). The `mymind_client` module implements all of
+this; this section is the spec it follows.
 
 - **Strategy**: we only ship URLs (plus optional tags). mymind extracts
   title, screenshot, preview and metadata server-side. **Don't pre-fetch
   pages, scrape Open Graph tags, or generate screenshots client-side.**
-- **Auth**: HS256 JWT signed per request. Header `kid`, claims `path`,
-  `method` (uppercase), `iat`, `exp` (recommended `iat + 300`). Bearer in
-  `Authorization`. `User-Agent` required.
+- **Auth**: HS256 JWT signed per request. Header `kid`, claims `path`
+  (e.g. `/objects`, no `/api` prefix), `method` (uppercase), `iat`, `exp`
+  (recommended `iat + 300`). Bearer in `Authorization`. `User-Agent`
+  required. The `MYMIND_API_KEY_SECRET` env var is the base64-encoded
+  32-byte HMAC key as issued by mymind; `MymindCreds.hmac_key()` decodes
+  it once per call.
 - **Create bookmark**: `POST /objects` with `{"url": "https://...",
   "tags": [{"name": "x"}, {"name": "reading"}]}`. Exactly one of `url`,
   `content`, `blob` — combining them returns 400. **Tags are objects with
@@ -220,15 +223,19 @@ endpoint that creates a bookmark from a URL).
 - **Rate limit**: dual credit system (`burst` + `sustained` over 30 days).
   Response headers `RateLimit-Policy`, `RateLimit` (`r`=remaining, `t`=reset
   seconds), `RateLimit-Cost`. `POST /objects` costs 10–250 credits. On 429,
-  sleep until the slowest exhausted policy's `t`.
+  sleep until the slowest exhausted policy's `t` -- see
+  `parse_ratelimit_reset`.
 - **Errors**: `application/problem+json` (RFC 9457). Branch on `type`
   (`NotFound`, `Unauthorized`, `RateLimited`, …), not on `detail`.
+  `_extract_detail` surfaces the human-readable field to CLI output.
 
 ## Git / PR conventions
 
 - GitHub repo (MCP-scoped): `akhalildjo/tomymind`.
-- Phase 1 (X scraper + base layout) landed in PR #1 — read it before
-  redesigning core abstractions.
-- Phase 2 lands as a series of small PRs (scaffold → NATS plumbing → mymind
-  auth → mymind client → importer loop → polish), each mergeable on its own
-  so `main` stays green.
+- Keep PRs small and self-contained: one scraper / one CLI command / one
+  bug fix per PR. `main` stays green.
+- An earlier iteration scaffolded a NATS JetStream + Docker importer
+  architecture for an automated event-driven flow; that path was dropped
+  in favor of the simpler "manual CLI per source" flow you see today. If
+  you find references to NATS, `mymind_importer` as a service, or Docker
+  in old git history, they are intentionally removed.

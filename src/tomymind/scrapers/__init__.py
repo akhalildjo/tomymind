@@ -13,9 +13,7 @@ def available_scrapers() -> list[str]:
 def get_scraper(name: str) -> BaseScraper:
     key = name.lower()
     if key not in _REGISTRY:
-        raise ValueError(
-            f"Unknown source '{name}'. Available: {', '.join(available_scrapers())}"
-        )
+        raise ValueError(f"Unknown source '{name}'. Available: {', '.join(available_scrapers())}")
     return _REGISTRY[key]()
 
 

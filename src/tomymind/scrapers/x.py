@@ -22,10 +22,34 @@ class XScraper(BaseScraper):
     login_url = "https://x.com/i/flow/login"
     home_url = "https://x.com/home"
     bookmarks_url = "https://x.com/i/bookmarks"
+    # Visiting the root first builds up guest_id / gt / ct0 cookies. Without
+    # them /i/flow/login gets a 400 on onboarding/task.json.
+    warmup_url = "https://x.com/"
+    # Cookies the user can paste from a logged-in Chrome to skip login.
+    # auth_token is the session bearer; ct0 is the CSRF token X embeds in
+    # every authenticated XHR. With both, X treats us as the logged-in user.
+    cookie_import_domain = ".x.com"
+    cookie_import_specs = {
+        "auth_token": {"httpOnly": True, "sameSite": "None"},
+        "ct0": {"httpOnly": False, "sameSite": "Lax"},
+    }
 
     # Stop after this many consecutive scrolls that don't reveal new content.
     _idle_scroll_limit = 5
     _scroll_pause_sec = 1.8
+
+    async def on_page_ready(self, page: Page) -> None:
+        # X aggressively fingerprints Playwright. tf-playwright-stealth patches
+        # navigator.webdriver, plugins, languages, WebGL and other tells via an
+        # init script that runs before any page JS. Requires `--extra stealth`.
+        try:
+            from playwright_stealth import stealth_async
+        except ImportError as exc:
+            raise SessionError(
+                "X requires the 'stealth' extra to bypass anti-bot detection. "
+                "Run: uv sync --extra scraper --extra stealth"
+            ) from exc
+        await stealth_async(page)
 
     async def is_logged_in(self, page: Page) -> bool:
         try:
@@ -37,15 +61,12 @@ class XScraper(BaseScraper):
             return False
         return "/login" not in page.url and "/i/flow/login" not in page.url
 
-    async def scrape(
-        self, page: Page, limit: int | None = None
-    ) -> AsyncIterator[BookmarkItem]:
+    async def scrape(self, page: Page, limit: int | None = None) -> AsyncIterator[BookmarkItem]:
         await page.goto(self.bookmarks_url, wait_until="domcontentloaded")
 
         if "/login" in page.url or "/i/flow/login" in page.url:
             raise SessionError(
-                f"Session expirée pour '{self.name}'. "
-                f"Relance : tomymind login {self.name}"
+                f"Session expirée pour '{self.name}'. Relance : tomymind login {self.name}"
             )
 
         try:

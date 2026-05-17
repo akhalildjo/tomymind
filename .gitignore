@@ -22,8 +22,8 @@ build/
 .env.local
 .env.*.local
 
-# Sessions Playwright (cookies + localStorage)
-sessions/*.json
+# Sessions Playwright (persistent Chrome profile per source)
+sessions/*
 
 # Outputs scrapés
 output/*.json
