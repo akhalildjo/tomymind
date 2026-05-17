@@ -18,7 +18,7 @@
 # After `make check` passes, the only manual steps left need a real browser
 # and your X credentials:
 #   make login-x      # opens a visible Chromium, you log in by hand
-#   make scrape-x     # scrapes 5 bookmarks into output/x_bookmarks.json
+#   make scrape-x     # scrapes everything into output/x_bookmarks.json
 
 ifeq ($(OS),Windows_NT)
     SHELL := cmd.exe
@@ -55,7 +55,7 @@ help:
 	@echo   make check          - run everything above in order, clean teardown at the end
 	@$(BLANK)
 	@echo   make login-x        - manual: opens visible Chromium to log into X
-	@echo   make scrape-x       - manual: scrape 5 bookmarks from X, needs prior login-x
+	@echo   make scrape-x       - manual: scrape all bookmarks from X, needs prior login-x
 
 prereqs:
 	@echo == Prereqs ==
@@ -118,5 +118,5 @@ login-x:
 	uv run tomymind login x
 
 scrape-x:
-	@echo == tomymind scrape x --limit 5 ==
-	uv run tomymind scrape x --limit 5
+	@echo == tomymind scrape x ==
+	uv run tomymind scrape x
