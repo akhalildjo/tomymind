@@ -305,3 +305,58 @@ rejected if the commit isn't reachable from a `release/*` or
 - The repo URL `https://github.com/akhalildjo/tomymind` is hardcoded
   in both prepare workflows for the CHANGELOG link references. If the
   repo ever moves, search for it in `.github/workflows/`.
+
+### Repo settings (public-repo hardening)
+
+The repo is **public**, MIT-licensed. The branch model above is enforced
+at the GitHub level by three **Rulesets** (Settings → Rules → Rulesets —
+not the deprecated "Branch protection rules" UI):
+
+| Ruleset | Target | Effect |
+|---|---|---|
+| A — `main` | branch `main` | Restrict deletions, block force-push, require PR + green CI, require conversation resolution, dismiss stale approvals |
+| B — release / hotfix | `release/**` and `hotfix/**` | Same as A; admin can bypass for the direct fix-push case on a live `release/x.y` documented in `CONTRIBUTING.md` |
+| C — version tags | tags matching `v*` | Restrict creation / update / deletion to admin — enforces "only the maintainer pushes `v*` tags" |
+
+Required status checks on A and B are every job name produced by
+`ci.yml`: `Lint (ruff)`, the nine `Test (<os> / Python <version>)`
+matrix cells, and `Build distribution`. **Add new cells to the rulesets
+when the CI matrix grows**, otherwise they don't gate the merge.
+
+Code security features (free on public repos, all ON):
+
+- Dependabot alerts + security updates (in addition to the
+  `dependabot.yml` version updates already configured).
+- Secret scanning + push protection.
+- CodeQL default setup for Python (adds `Analyze (python)` and
+  `Analyze (actions)` checks to PRs).
+- Private vulnerability reporting (the channel `SECURITY.md` points
+  users at).
+
+Actions settings that matter for the release flow:
+
+- **Allow GitHub Actions to create and approve pull requests** must be
+  ON, otherwise `backmerge.yml` and `prepare-release.yml` fail at
+  `gh pr create`.
+- Fork-PR workflows: "Require approval for all external contributors"
+  — random PRs don't burn CI minutes while contributions are closed
+  (see `CONTRIBUTING.md`).
+
+Pull-request merge settings:
+
+- **Merge commits ON** — needed for backmerges (`release/*` → `main`)
+  so the version-bump commit lands on both branches with its history
+  intact.
+- **Squash merging ON** — default for feature PRs.
+- **Rebase merging OFF** — avoid history mutation on protected
+  branches.
+- **Auto-delete head branches ON** — safe because protected
+  `release/*` / `hotfix/*` branches are exempt from auto-delete by
+  design (GitHub never auto-deletes a protected ref).
+
+The README carries a "Use at your own risk" disclaimer under the top
+`[!IMPORTANT]` callout (ToS responsibility is the user's, not the
+maintainer's) and the trademark footer acknowledges both **mymind®**
+(mymind GmbH) and **X®** (X Corp). Keep that disclaimer present
+whenever the README is restructured — it's the surface-level legal
+posture for the public repo.

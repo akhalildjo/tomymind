@@ -28,6 +28,12 @@ roadmap.
 > This is a **community project**, not an official mymind product. It
 > talks to the [public mymind API](https://access.mymind.com/api) using
 > your own credentials. No affiliation, no endorsement.
+>
+> **Use is at your own risk.** Each source has its own Terms of Service,
+> and automated access may not be permitted on every platform. Only run
+> `tomymind` with accounts you own, only to export your own bookmarks,
+> and make sure your usage complies with each service's ToS. The tool is
+> provided "as is" without warranty — see [LICENSE](LICENSE).
 
 ---
 
@@ -114,7 +120,23 @@ That's the whole thing.
   `scoop install make`. Skip it if you prefer typing the full
   `uv run tomymind …` commands.
 
-Runs on Windows, macOS, and Linux.
+### Tested on
+
+CI runs lint + the full test suite on every push, across the matrix
+below. The pure helpers and mocked plumbing are exercised on each cell;
+the real Chromium / real mymind paths aren't E2E-tested by design (see
+[Roadmap → Test coverage](#test-coverage) for the rationale).
+
+| OS | Python | Status |
+|---|---|---|
+| Linux | 3.12 / 3.13 / 3.14 | ✓ Daily-driven by the maintainer |
+| macOS | 3.12 / 3.13 / 3.14 | ✓ CI-validated, not daily-driven — field reports welcome |
+| Windows | 3.12 / 3.13 / 3.14 | ✓ CI-validated, not daily-driven — field reports especially welcome |
+
+If something works for you (or breaks in an interesting way), please
+share via [Discussions](https://github.com/akhalildjo/tomymind/discussions)
+or an [issue](https://github.com/akhalildjo/tomymind/issues/new/choose) —
+that's how we'll prioritize the remaining test gaps.
 
 ---
 
@@ -413,15 +435,41 @@ External PRs aren't open yet — see [Contributing](#contributing).
 
 ## Roadmap
 
-- [x] Repo skeleton, base scraper runner, output schema
+### Sources
+
 - [x] **X (Twitter)** scraper — `/i/bookmarks` with infinite scroll
-- [x] Cookie-import flow for sources that refuse automated login
-- [x] `tomymind push` — HS256 JWT signer, rate-limit-aware client,
-      resumable ledger
 - [ ] **Instagram** scraper — `/<user>/saved/`
 - [ ] **Pinterest** scraper — `/<user>/_saved/`
 - [ ] **YouTube** "Watch later" → mymind
-- [ ] Tag enrichment (auto-tag based on host or source heuristics)
+
+### Core
+
+- [x] Repo skeleton, base scraper runner, output schema
+- [x] Cookie-import flow for sources that refuse automated login
+- [x] `tomymind push` — HS256 JWT signer, rate-limit-aware client,
+      resumable ledger
+
+### Test coverage
+
+The unit suite covers pure helpers and mocked plumbing on every CI
+matrix cell. Known gaps, in ROI order:
+
+- [ ] `httpx.MockTransport` tests for `MymindClient.create_object`
+      covering the 200 / 201 / 429-retry / 5xx-retry paths
+- [ ] One real-Playwright smoke test on Linux to validate
+      `launch_persistent_context` + `add_cookies` bindings against a
+      local HTML fixture (no live third-party site)
+- [ ] CI job that runs `make check` on Windows so the Makefile's
+      `cmd.exe` branch is exercised end-to-end (today only `uv run
+      pytest` is)
+- [ ] Test for the `channel="chrome"` system-Chrome lookup with the
+      "Chrome not found → bundled Chromium" fallback on each OS
+- [ ] Repro of Windows session-dir file-locking behavior so we catch
+      the failure mode before users do
+
+Live `x.com` / `instagram.com` / `pinterest.com` E2E tests are
+**deliberately out of scope** — live pages change too often, see
+[`CLAUDE.md`](CLAUDE.md) for the rationale.
 
 Want a source added? [Open an issue](https://github.com/akhalildjo/tomymind/issues).
 
@@ -480,5 +528,5 @@ MIT — see [LICENSE](LICENSE).
 ---
 
 <sub>Made by and for the mymind community. mymind® is a trademark of
-[mymind GmbH](https://mymind.com). This project is not affiliated with,
-endorsed by, or sponsored by mymind.</sub>
+[mymind GmbH](https://mymind.com); X® is a trademark of X Corp. This
+project is not affiliated with, endorsed by, or sponsored by either.</sub>
