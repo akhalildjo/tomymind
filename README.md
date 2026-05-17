@@ -419,15 +419,41 @@ External PRs aren't open yet — see [Contributing](#contributing).
 
 ## Roadmap
 
-- [x] Repo skeleton, base scraper runner, output schema
+### Sources
+
 - [x] **X (Twitter)** scraper — `/i/bookmarks` with infinite scroll
-- [x] Cookie-import flow for sources that refuse automated login
-- [x] `tomymind push` — HS256 JWT signer, rate-limit-aware client,
-      resumable ledger
 - [ ] **Instagram** scraper — `/<user>/saved/`
 - [ ] **Pinterest** scraper — `/<user>/_saved/`
 - [ ] **YouTube** "Watch later" → mymind
-- [ ] Tag enrichment (auto-tag based on host or source heuristics)
+
+### Core
+
+- [x] Repo skeleton, base scraper runner, output schema
+- [x] Cookie-import flow for sources that refuse automated login
+- [x] `tomymind push` — HS256 JWT signer, rate-limit-aware client,
+      resumable ledger
+
+### Test coverage
+
+The unit suite covers pure helpers and mocked plumbing on every CI
+matrix cell. Known gaps, in ROI order:
+
+- [ ] `httpx.MockTransport` tests for `MymindClient.create_object`
+      covering the 200 / 201 / 429-retry / 5xx-retry paths
+- [ ] One real-Playwright smoke test on Linux to validate
+      `launch_persistent_context` + `add_cookies` bindings against a
+      local HTML fixture (no live third-party site)
+- [ ] CI job that runs `make check` on Windows so the Makefile's
+      `cmd.exe` branch is exercised end-to-end (today only `uv run
+      pytest` is)
+- [ ] Test for the `channel="chrome"` system-Chrome lookup with the
+      "Chrome not found → bundled Chromium" fallback on each OS
+- [ ] Repro of Windows session-dir file-locking behavior so we catch
+      the failure mode before users do
+
+Live `x.com` / `instagram.com` / `pinterest.com` E2E tests are
+**deliberately out of scope** — live pages change too often, see
+[`CLAUDE.md`](CLAUDE.md) for the rationale.
 
 Want a source added? [Open an issue](https://github.com/akhalildjo/tomymind/issues).
 
