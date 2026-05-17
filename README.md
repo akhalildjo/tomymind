@@ -2,7 +2,9 @@
 
 > Bring your scattered bookmarks home to [mymind](https://mymind.com).
 
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![CI](https://github.com/akhalildjo/tomymind/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/akhalildjo/tomymind/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/akhalildjo/tomymind?include_prereleases&sort=semver)](https://github.com/akhalildjo/tomymind/releases)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](#requirements)
 
@@ -36,6 +38,7 @@ roadmap.
 - [Adding a new source](#adding-a-new-source)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
+- [Acknowledgments](#acknowledgments)
 - [License](#license)
 
 ---
@@ -419,20 +422,15 @@ Want a source added? [Open an issue](https://github.com/akhalildjo/tomymind/issu
 
 ## Contributing
 
-Contributions are welcome — bug reports, new scrapers, doc fixes, all of
-it. A few ground rules:
+Contributions are welcome — bug reports, new scrapers, doc fixes, all
+of it. The full guide lives in [`CONTRIBUTING.md`](CONTRIBUTING.md), the
+short version is:
 
 - **First-party data only.** This tool exists to import *your* bookmarks
-  into *your* mymind library. We won't accept PRs that scrape other
-  people's content, search results, or anything not behind your own
-  login.
-- **Be gentle.** No parallel runs on the same account, no aggressive
-  scroll cadence. We don't want to get anyone's account flagged.
-- **Cross-platform.** Code must run on Windows, macOS, and Linux. Use
-  `pathlib`, avoid shell-isms, pass `encoding="utf-8"` to file I/O.
-- **No E2E tests against live sites.** Test parsing helpers
-  (`_parse_tweet_href` style) with fixture data — live pages change too
-  often to be a reliable test target.
+  into *your* mymind library.
+- **Cross-platform.** Code must run on Windows, macOS, and Linux. CI
+  enforces this across Python 3.12, 3.13 and 3.14.
+- **No live-site E2E tests.** Test parsing helpers with fixture data.
 
 Quality gates before opening a PR:
 
@@ -442,7 +440,29 @@ make test          # pytest
 ```
 
 See [`CLAUDE.md`](CLAUDE.md) for architecture, conventions, and the
-debugging playbook.
+debugging playbook. Security reports go through
+[GitHub's private vulnerability reporting](https://github.com/akhalildjo/tomymind/security/advisories/new)
+— details in [`SECURITY.md`](SECURITY.md).
+
+---
+
+## Acknowledgments
+
+Huge thanks to **Tobias van Schneider** and the **[mymind](https://mymind.com)
+team** for building a bookmark home that actually respects its users — no
+algorithmic feed, no ads, no dark patterns — and for opening up a
+[public API](https://access.mymind.com/api) that makes a community tool
+like this one possible in the first place.
+
+This project also stands on the shoulders of the open-source ecosystem:
+[Playwright](https://playwright.dev/), [Pydantic](https://docs.pydantic.dev/),
+[Typer](https://typer.tiangolo.com/), [httpx](https://www.python-httpx.org/),
+[uv](https://docs.astral.sh/uv/), [ruff](https://docs.astral.sh/ruff/), and
+[pytest](https://docs.pytest.org/) — thanks to every maintainer who keeps
+those alive.
+
+And finally, thanks to every contributor who files an issue, opens a PR,
+or just stars the repo. Every bit helps.
 
 ---
 

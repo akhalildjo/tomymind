@@ -1,0 +1,105 @@
+name: Bug report
+description: Something doesn't work the way it should.
+title: "[bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report.
+
+        Please fill in the sections below so we can reproduce the issue quickly.
+        If your problem involves credentials, **never paste them here** — strip
+        cookie values, JWT secrets and API keys from any logs you share.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug. What did you do, what did you expect, what did you get instead?
+      placeholder: |
+        I ran `tomymind scrape x` and ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: The exact commands you ran, in order.
+      placeholder: |
+        1. `make install`
+        2. `make import-cookies-x`
+        3. `make scrape-x`
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Output from the failing command. Strip any secrets first (cookies, tokens, API keys).
+      render: text
+    validations:
+      required: false
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other (specify below)
+    validations:
+      required: true
+
+  - type: input
+    id: os-version
+    attributes:
+      label: OS version
+      placeholder: e.g. Windows 11 23H2, macOS 15.1, Ubuntu 24.04
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      description: Output of `python --version`.
+      placeholder: e.g. 3.12.7
+    validations:
+      required: true
+
+  - type: input
+    id: tomymind-version
+    attributes:
+      label: tomymind version
+      description: Output of `uv run python -c "from tomymind import __version__; print(__version__)"`, or the commit SHA if installed from a clone.
+      placeholder: e.g. 0.1.0 or commit 8110274
+    validations:
+      required: true
+
+  - type: dropdown
+    id: source
+    attributes:
+      label: Affected source
+      description: Which scraper / source does this bug affect?
+      options:
+        - x
+        - Multiple
+        - Not source-specific (CLI / push / install)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Pre-flight checks
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true
+        - label: I stripped credentials (cookies, JWT secrets, API keys) from any logs I pasted.
+          required: true

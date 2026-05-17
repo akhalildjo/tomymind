@@ -451,7 +451,6 @@ wheels = [
 
 [[package]]
 name = "tomymind"
-version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "pydantic" },
@@ -489,7 +488,7 @@ requires-dist = [
     { name = "tf-playwright-stealth", marker = "extra == 'stealth'", specifier = ">=1.1.0" },
     { name = "typer", marker = "extra == 'scraper'", specifier = ">=0.13" },
 ]
-provides-extras = ["scraper", "stealth", "push", "dev"]
+provides-extras = ["dev", "push", "scraper", "stealth"]
 
 [[package]]
 name = "typer"
