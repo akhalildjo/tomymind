@@ -1,6 +1,10 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file documents the project's architecture, conventions and gotchas.
+[Claude Code](https://claude.ai/code) reads it for context when working on
+the codebase; human contributors should read it too before opening a PR,
+since it captures decisions and constraints that aren't obvious from the
+code alone.
 
 ## Project state
 
@@ -21,10 +25,11 @@ no daemon, no Docker. The three-step user flow per source is:
 Sources today: **X**. The architecture is shaped so adding new sources only
 touches `src/tomymind/scrapers/`.
 
-**Login stays a manual host operation, period.** The login flow needs a
-visible Chromium window so the user can type credentials and clear any
-2FA / captcha. The cookie-import path skips Chromium entirely for sources
-where the login UI refuses automation (X's case).
+**Login is intentionally a manual operation on the host.** The login flow
+needs a visible Chromium window so the user can type credentials and clear
+any 2FA / captcha; automating it is out of scope. The cookie-import path
+skips the login UI entirely for sources whose anti-bot stack refuses
+automated browsers at the login screen (X's case today).
 
 ## Portability
 
@@ -124,11 +129,14 @@ Everything is one process per CLI invocation, all on the host:
   re-checks `is_logged_in`, then iterates `scraper.scrape(page, limit)`. Items
   are streamed (`async for`) so progress is visible and the run can stop on
   `--limit`.
-- `push.run_push` reads the scrape JSON, filters by the local ledger, and
-  hands each remaining item to `mymind_client.MymindClient.create_object`.
-  No cross-mymind dedup: we rely on mymind's native server-side dedup (URL
-  already present → `200 OK`, refreshes `bumped`) as the safety net. The
-  ledger only protects against re-pushing within a single user session.
+- `push.run_push` reads the scrape JSON, filters out items whose
+  `source_item_id` is already in the local ledger, and hands each remaining
+  item to `mymind_client.MymindClient.create_object`. The ledger is
+  persisted to `output/.pushed_<source>.json` and survives across runs, so
+  re-running `push` after a Ctrl+C or after a fresh `scrape` only sends
+  what hasn't been sent yet from this machine. Cross-machine / cross-install
+  dedup is not done client-side; mymind's native server-side URL dedup
+  (existing URL → `200 OK`, refreshes `bumped`) is the safety net.
 - `mymind_client.sign_request` builds a per-request bearer JWT (kid header
   + path/method/iat/exp claims, 5-min TTL). The secret is base64-decoded
   to bytes once per call. See `## mymind API` below for the rate-limit
@@ -162,13 +170,15 @@ Everything is one process per CLI invocation, all on the host:
    authenticated) and `scrape(page, limit) -> AsyncIterator[BookmarkItem]`.
 2. Register it in `src/tomymind/scrapers/__init__.py` by adding it to
    `_REGISTRY`. `tomymind sources` will pick it up automatically.
-3. The CLI commands (`login`, `scrape`) work without any further wiring.
+3. All four CLI commands (`login`, `import-cookies`, `scrape`, `push`)
+   then work against the new source without any further wiring.
 
-For sources with strong anti-bot detection (X already needs it, Instagram
-will), override `on_page_ready(page)` to apply `playwright_stealth.stealth_async`
-before the first navigation, and throttle scroll/click cadence. `on_context_ready`
-is the place for context-wide things (extra headers, cookies); stealth is
-page-level because it relies on `page.add_init_script`.
+For sources with strong anti-bot detection (X needs it today; sources like
+Instagram likely will too), override `on_page_ready(page)` to apply
+`playwright_stealth.stealth_async` before the first navigation, and throttle
+scroll/click cadence. `on_context_ready` is the place for context-wide
+things (extra headers, cookies); stealth is page-level because it relies on
+`page.add_init_script`.
 
 ## Debugging a flaky scraper
 
@@ -204,9 +214,9 @@ requests is `https://api.mymind.com` (override via `MYMIND_API_BASE` env
 var if pointing at staging). The `mymind_client` module implements all of
 this; this section is the spec it follows.
 
-- **Strategy**: we only ship URLs (plus optional tags). mymind extracts
-  title, screenshot, preview and metadata server-side. **Don't pre-fetch
-  pages, scrape Open Graph tags, or generate screenshots client-side.**
+- **Strategy**: ship URLs only (plus optional tags). mymind extracts title,
+  screenshot, preview and metadata server-side. **Don't pre-fetch pages,
+  scrape Open Graph tags, or generate screenshots client-side.**
 - **Auth**: HS256 JWT signed per request. Header `kid`, claims `path`
   (e.g. `/objects`, no `/api` prefix), `method` (uppercase), `iat`, `exp`
   (recommended `iat + 300`). Bearer in `Authorization`. `User-Agent`
@@ -231,7 +241,9 @@ this; this section is the spec it follows.
 
 ## Git / PR conventions
 
-- GitHub repo (MCP-scoped): `akhalildjo/tomymind`.
+- GitHub repo: `akhalildjo/tomymind` (this is the only repo Claude Code
+  agents working on this project are allowed to touch; human contributors
+  obviously have the same scope by convention).
 - Keep PRs small and self-contained: one scraper / one CLI command / one
   bug fix per PR. `main` stays green.
 - An earlier iteration scaffolded a NATS JetStream + Docker importer

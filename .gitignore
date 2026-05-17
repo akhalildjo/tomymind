@@ -17,10 +17,10 @@ build/
 # uv
 .python-version
 
-# Environment
+# Environment -- ignore every .env* variant, keep only the example template
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
 # Sessions Playwright (persistent Chrome profile per source)
 sessions/*
