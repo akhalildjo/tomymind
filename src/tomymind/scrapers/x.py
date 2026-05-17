@@ -37,15 +37,12 @@ class XScraper(BaseScraper):
             return False
         return "/login" not in page.url and "/i/flow/login" not in page.url
 
-    async def scrape(
-        self, page: Page, limit: int | None = None
-    ) -> AsyncIterator[BookmarkItem]:
+    async def scrape(self, page: Page, limit: int | None = None) -> AsyncIterator[BookmarkItem]:
         await page.goto(self.bookmarks_url, wait_until="domcontentloaded")
 
         if "/login" in page.url or "/i/flow/login" in page.url:
             raise SessionError(
-                f"Session expirée pour '{self.name}'. "
-                f"Relance : tomymind login {self.name}"
+                f"Session expirée pour '{self.name}'. Relance : tomymind login {self.name}"
             )
 
         try:

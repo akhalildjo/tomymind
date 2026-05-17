@@ -50,8 +50,7 @@ async def run_scrape(
     """Load the saved session and run the scraper, then dump results to JSON."""
     if not scraper.session_path.exists():
         raise SessionError(
-            f"Aucune session pour '{scraper.name}'. "
-            f"Lance d'abord : tomymind login {scraper.name}"
+            f"Aucune session pour '{scraper.name}'. Lance d'abord : tomymind login {scraper.name}"
         )
 
     async with async_playwright() as p:
@@ -64,8 +63,7 @@ async def run_scrape(
         if not await scraper.is_logged_in(page):
             await browser.close()
             raise SessionError(
-                f"Session expirée pour '{scraper.name}'. "
-                f"Relance : tomymind login {scraper.name}"
+                f"Session expirée pour '{scraper.name}'. Relance : tomymind login {scraper.name}"
             )
 
         items: list[BookmarkItem] = []

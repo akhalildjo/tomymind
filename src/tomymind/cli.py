@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import Optional
 
 import typer
 
@@ -40,8 +39,8 @@ def login(
 @app.command(help="Scrape bookmarks from a source using its saved session.")
 def scrape(
     source: str = typer.Argument(..., help=f"One of: {', '.join(available_scrapers())}"),
-    limit: Optional[int] = typer.Option(None, help="Max bookmarks to scrape."),
-    output: Optional[Path] = typer.Option(
+    limit: int | None = typer.Option(None, help="Max bookmarks to scrape."),
+    output: Path | None = typer.Option(
         None, help="Output JSON path. Defaults to output/<source>_bookmarks.json."
     ),
     show_browser: bool = typer.Option(

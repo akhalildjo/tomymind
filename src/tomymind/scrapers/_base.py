@@ -28,9 +28,7 @@ class BaseScraper(ABC):
         """Return True if the current page indicates an active session."""
 
     @abstractmethod
-    async def scrape(
-        self, page: Page, limit: int | None = None
-    ) -> AsyncIterator[BookmarkItem]:
+    async def scrape(self, page: Page, limit: int | None = None) -> AsyncIterator[BookmarkItem]:
         """Yield bookmarks one by one. Stop when limit is reached or source is exhausted."""
         if False:  # pragma: no cover
             yield  # makes the body a valid async generator
