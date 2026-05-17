@@ -124,6 +124,16 @@ jobs:
             exit 0
           fi
 
+          # If the source branch has no commits beyond main (e.g. first release
+          # where release/x.y was cut at the same SHA as main, or main already
+          # absorbed the bump commit via another PR), there is nothing to
+          # backmerge. `gh pr create` would fail with "No commits between …".
+          AHEAD="$(git rev-list --count "origin/main..origin/${SOURCE_BRANCH}")"
+          if [ "$AHEAD" -eq 0 ]; then
+            echo "No commits on ${SOURCE_BRANCH} that aren't already on main; nothing to backmerge."
+            exit 0
+          fi
+
           gh pr create \
             --repo "$GITHUB_REPOSITORY" \
             --base main \
@@ -156,6 +166,12 @@ jobs:
           EXISTING="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "${SOURCE_BRANCH}" --base "${EXTRA_TARGET}" --state open --json number --jq '.[0].number' || true)"
           if [ -n "$EXISTING" ]; then
             echo "PR #${EXISTING} already open for ${SOURCE_BRANCH} -> ${EXTRA_TARGET}; leaving it as-is."
+            exit 0
+          fi
+
+          AHEAD="$(git rev-list --count "origin/${EXTRA_TARGET}..origin/${SOURCE_BRANCH}")"
+          if [ "$AHEAD" -eq 0 ]; then
+            echo "No commits on ${SOURCE_BRANCH} that aren't already on ${EXTRA_TARGET}; nothing to backmerge."
             exit 0
           fi
 
