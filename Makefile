@@ -33,7 +33,7 @@ endif
 
 .DEFAULT_GOAL := help
 
-.PHONY: help prereqs install lint test cli \
+.PHONY: help prereqs install install-chrome lint test cli \
         docker-build docker-up docker-status docker-logs docker-down \
         check login-x import-cookies-x scrape-x
 
@@ -41,7 +41,8 @@ help:
 	@echo tomymind - local validation targets
 	@$(BLANK)
 	@echo   make prereqs        - check that python / uv / docker are installed
-	@echo   make install        - uv sync scraper+stealth+importer+dev, then playwright install chromium + chrome
+	@echo   make install        - uv sync scraper+stealth+importer+dev, then playwright install chromium
+	@echo   make install-chrome - optional: install real Google Chrome via Playwright (needs admin on Windows)
 	@echo   make lint           - ruff check and ruff format --check
 	@echo   make test           - pytest
 	@echo   make cli            - smoke test the tomymind CLI, lists sources
@@ -66,9 +67,16 @@ prereqs:
 	docker compose version
 
 install:
-	@echo == uv sync + playwright install chromium + chrome ==
+	@echo == uv sync + playwright install chromium ==
 	uv sync --extra scraper --extra stealth --extra importer --extra dev
 	uv run playwright install chromium
+
+# Optional: drops real Google Chrome where channel="chrome" looks. Needs admin
+# on Windows (it's a system-wide install). Skip it if you already have Chrome
+# installed via chrome.com -- the runner will pick it up via channel="chrome"
+# automatically. The cookie-import flow works fine without this.
+install-chrome:
+	@echo == playwright install chrome -- may need admin on Windows ==
 	uv run playwright install chrome
 
 lint:
