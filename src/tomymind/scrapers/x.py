@@ -22,6 +22,9 @@ class XScraper(BaseScraper):
     login_url = "https://x.com/i/flow/login"
     home_url = "https://x.com/home"
     bookmarks_url = "https://x.com/i/bookmarks"
+    # Visiting the root first builds up guest_id / gt / ct0 cookies. Without
+    # them /i/flow/login gets a 400 on onboarding/task.json.
+    warmup_url = "https://x.com/"
 
     # Stop after this many consecutive scrolls that don't reveal new content.
     _idle_scroll_limit = 5

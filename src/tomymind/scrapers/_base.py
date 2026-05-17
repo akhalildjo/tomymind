@@ -18,6 +18,9 @@ class BaseScraper(ABC):
     name: str
     login_url: str
     home_url: str
+    # Optional URL hit before login_url so the server seeds bootstrap cookies
+    # (guest tokens, CSRF, etc.) that the login API expects. None = skip.
+    warmup_url: str | None = None
 
     @property
     def session_path(self) -> Path:

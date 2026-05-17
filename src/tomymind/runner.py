@@ -17,13 +17,17 @@ __all__ = ["SessionError", "run_login", "run_scrape"]
 # JS-level tells, this kills the C++ one.
 _LAUNCH_ARGS = ["--disable-blink-features=AutomationControlled"]
 
-# Realistic Chrome-on-Windows context. UA matches Chrome 131 on Win10/11 so
-# passive sniffers find nothing off; viewport and locale are normal laptop
-# values. Used for both the headed login and the headless scrape so the two
-# look the same to the server.
-_CONTEXT_OPTIONS: dict = {
+# Realistic browser context. With channel="chrome" we DON'T spoof the UA —
+# real Chrome already sends a Chrome UA that matches its actual major
+# version and its Client Hints (Sec-CH-UA). Overriding it creates a
+# mismatch that's trivially detectable. We only spoof the UA when we
+# fall back to bundled Chromium (which otherwise advertises itself).
+_CHROME_CONTEXT_OPTIONS: dict = {
     "viewport": {"width": 1280, "height": 800},
     "locale": "en-US",
+}
+_CHROMIUM_FALLBACK_CONTEXT_OPTIONS: dict = {
+    **_CHROME_CONTEXT_OPTIONS,
     "user_agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -36,17 +40,20 @@ async def _launch_persistent(p, scraper: BaseScraper, headless: bool) -> Browser
     """Open a persistent context backed by a per-source profile directory.
 
     Tries the system Chrome binary first (channel='chrome') so we get a real
-    Chrome fingerprint. Falls back to Playwright's bundled Chromium with a
-    one-time warning if Chrome isn't installed.
+    Chrome fingerprint with matching UA + Client Hints. Falls back to
+    Playwright's bundled Chromium with a one-time warning if Chrome isn't
+    installed (and spoofs a Chrome UA in that case since Chromium's default
+    UA is otherwise a giveaway).
     """
-    common: dict = {
+    base: dict = {
         "user_data_dir": str(scraper.session_path),
         "headless": headless,
         "args": _LAUNCH_ARGS,
-        **_CONTEXT_OPTIONS,
     }
     try:
-        return await p.chromium.launch_persistent_context(channel="chrome", **common)
+        return await p.chromium.launch_persistent_context(
+            channel="chrome", **base, **_CHROME_CONTEXT_OPTIONS
+        )
     except Exception:
         print(
             "  note: system Chrome not found, falling back to bundled Chromium. "
@@ -54,7 +61,9 @@ async def _launch_persistent(p, scraper: BaseScraper, headless: bool) -> Browser
             "Google Chrome for the best results.",
             file=sys.stderr,
         )
-        return await p.chromium.launch_persistent_context(**common)
+        return await p.chromium.launch_persistent_context(
+            **base, **_CHROMIUM_FALLBACK_CONTEXT_OPTIONS
+        )
 
 
 def _first_page(context: BrowserContext):
@@ -72,6 +81,15 @@ async def run_login(scraper: BaseScraper) -> None:
             await scraper.on_context_ready(context)
             page = _first_page(context) or await context.new_page()
             await scraper.on_page_ready(page)
+
+            # Warmup: hit the source's root so the server hands us the
+            # bootstrap cookies (guest_id, gt, ct0 ...) that the login API
+            # checks. Going straight to /i/flow/login without these is what
+            # makes X return 400 on onboarding/task.json.
+            if scraper.warmup_url:
+                await page.goto(scraper.warmup_url, wait_until="domcontentloaded")
+                await asyncio.sleep(2)
+
             await page.goto(scraper.login_url, wait_until="domcontentloaded")
 
             print(f"\n  Connecte-toi à '{scraper.name}' dans la fenêtre qui vient de s'ouvrir.")
