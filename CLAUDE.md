@@ -78,8 +78,8 @@ uv run pytest                # asyncio_mode=auto is set in pyproject.toml
 uv run pytest path/to/test_file.py::test_name -v
 ```
 
-`sessions/<source>.json` (Playwright `storage_state`) and `output/*.json` are
-gitignored — never commit them.
+`sessions/<source>/` (persistent Chrome user-data dir, drives `launch_persistent_context`)
+and `output/*.json` are gitignored — never commit them.
 
 ### pyproject extras at a glance
 
@@ -104,7 +104,7 @@ cli.py  →  runner.py  →  Playwright  →  scraper.scrape(page)  →  output/
                 ↑              ↑
                 │              └── BaseScraper subclass picked from
                 │                   scrapers/__init__._REGISTRY
-                └── loads sessions/<source>.json (storage_state)
+                └── loads sessions/<source>/ (persistent Chrome profile)
 ```
 
 Phase 2 (importer, runs in Docker — scaffold only, NATS publish/consume
@@ -126,10 +126,13 @@ scraper (host, phase 1) ────┐    │ Docker compose (phase 2)   │
 ```
 
 - `cli.py` parses args and resolves the scraper via `scrapers.get_scraper(name)`.
-- `runner.run_login` opens a **non-headless** browser, awaits stdin on a worker
-  thread, then calls `scraper.is_logged_in(page)` against `scraper.home_url`
-  before persisting `storage_state`.
-- `runner.run_scrape` loads the saved `storage_state`, navigates to `home_url`,
+- `runner.run_login` opens a **non-headless** browser via
+  `launch_persistent_context` (prefers system Chrome via `channel="chrome"`,
+  falls back to bundled Chromium), awaits stdin on a worker thread, then
+  calls `scraper.is_logged_in(page)` against `scraper.home_url`. The profile
+  dir at `sessions/<source>/` persists on its own — no explicit
+  `storage_state` dump needed.
+- `runner.run_scrape` reopens the same persistent profile, navigates to `home_url`,
   re-checks `is_logged_in`, then iterates `scraper.scrape(page, limit)`. Items
   are streamed (`async for`) so progress is visible and the run can stop on
   `--limit`.

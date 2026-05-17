@@ -65,8 +65,9 @@ uv run tomymind scrape x --output output/my-x-dump.json
 uv run tomymind sources
 ```
 
-Sessions are stored under `sessions/<source>.json` (cookies + localStorage).
-They're gitignored. Bookmarks land under `output/<source>_bookmarks.json`.
+Sessions are stored under `sessions/<source>/` (a persistent Chrome profile
+directory — cookies, localStorage, the works). They're gitignored. Bookmarks
+land under `output/<source>_bookmarks.json`.
 
 ### Phase 2 stack (Docker)
 

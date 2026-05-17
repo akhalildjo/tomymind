@@ -21,7 +21,10 @@ class BaseScraper(ABC):
 
     @property
     def session_path(self) -> Path:
-        return Path("sessions") / f"{self.name}.json"
+        # Persistent Chrome profile dir for this source. Cookies, localStorage
+        # and the whole user_data_dir live here so anti-bot sees a returning
+        # Chrome user rather than a fresh Playwright launch.
+        return Path("sessions") / self.name
 
     @abstractmethod
     async def is_logged_in(self, page: Page) -> bool:
