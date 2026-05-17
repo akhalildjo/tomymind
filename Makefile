@@ -35,7 +35,7 @@ endif
 
 .PHONY: help prereqs install install-chrome lint test cli \
         docker-build docker-up docker-status docker-logs docker-down \
-        check login-x import-cookies-x scrape-x
+        check login-x import-cookies-x scrape-x push-x
 
 help:
 	@echo tomymind - local validation targets
@@ -58,6 +58,7 @@ help:
 	@echo   make login-x        - manual: opens visible Chromium to log into X
 	@echo   make import-cookies-x - paste auth_token + ct0 from a logged-in Chrome, skips login
 	@echo   make scrape-x       - manual: scrape all bookmarks from X, needs prior login-x or import-cookies-x
+	@echo   make push-x         - POST scraped X bookmarks to mymind, needs .env with MYMIND_API_KEY_*
 
 prereqs:
 	@echo == Prereqs ==
@@ -134,3 +135,7 @@ import-cookies-x:
 scrape-x:
 	@echo == tomymind scrape x ==
 	uv run tomymind scrape x
+
+push-x:
+	@echo == tomymind push x -- POST scraped bookmarks to mymind ==
+	uv run tomymind push x
