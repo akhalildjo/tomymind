@@ -101,7 +101,7 @@ def push(
     ),
 ):
     # Lazy imports: pyjwt + httpx + python-dotenv only kick in for this
-    # command, so users who only scrape don't need the `importer` extra.
+    # command, so users who only scrape don't need the `push` extra.
     try:
         from dotenv import load_dotenv
 
