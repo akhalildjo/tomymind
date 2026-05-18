@@ -25,7 +25,7 @@ API.
 roadmap.
 
 > [!IMPORTANT]
-> This is a **community project**, not an official mymind product. It
+> This is a **personal project**, not an official mymind product. It
 > talks to the [public mymind API](https://access.mymind.com/api) using
 > your own credentials. No affiliation, no endorsement.
 >
@@ -506,7 +506,7 @@ debugging playbook, see [`CLAUDE.md`](CLAUDE.md).
 Huge thanks to **Tobias van Schneider** and the **[mymind](https://mymind.com)
 team** for building a bookmark home that actually respects its users — no
 algorithmic feed, no ads, no dark patterns — and for opening up a
-[public API](https://access.mymind.com/api) that makes a community tool
+[public API](https://access.mymind.com/api) that makes a personal tool
 like this one possible in the first place.
 
 This project also stands on the shoulders of the open-source ecosystem:
@@ -527,6 +527,6 @@ MIT — see [LICENSE](LICENSE).
 
 ---
 
-<sub>Made by and for the mymind community. mymind® is a trademark of
+<sub>A personal project for mymind users. mymind® is a trademark of
 [mymind GmbH](https://mymind.com); X® is a trademark of X Corp. This
 project is not affiliated with, endorsed by, or sponsored by either.</sub>
