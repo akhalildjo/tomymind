@@ -81,5 +81,5 @@ in your `<head>`:
 
 Palette and mood are inspired by the
 [mymind artworks gallery](https://mymind.com/artworks). `tomymind` is a
-community project; mymind itself is a trademark of mymind GmbH and is
+personal project; mymind itself is a trademark of mymind GmbH and is
 not affiliated with this repository.
