@@ -555,6 +555,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+automation = [
+    { name = "tf-playwright-stealth" },
+]
 dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -565,30 +568,27 @@ push = [
     { name = "httpx" },
     { name = "pyjwt" },
 ]
-scraper = [
+source = [
     { name = "playwright" },
     { name = "python-dotenv" },
     { name = "typer" },
-]
-stealth = [
-    { name = "tf-playwright-stealth" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "httpx", marker = "extra == 'push'", specifier = ">=0.27" },
-    { name = "playwright", marker = "extra == 'scraper'", specifier = ">=1.49" },
+    { name = "playwright", marker = "extra == 'source'", specifier = ">=1.49" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pyjwt", marker = "extra == 'push'", specifier = ">=2.9" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0" },
-    { name = "python-dotenv", marker = "extra == 'scraper'", specifier = ">=1.0" },
+    { name = "python-dotenv", marker = "extra == 'source'", specifier = ">=1.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.7" },
-    { name = "tf-playwright-stealth", marker = "extra == 'stealth'", specifier = ">=1.1.0" },
-    { name = "typer", marker = "extra == 'scraper'", specifier = ">=0.13" },
+    { name = "tf-playwright-stealth", marker = "extra == 'automation'", specifier = ">=1.1.0" },
+    { name = "typer", marker = "extra == 'source'", specifier = ">=0.13" },
 ]
-provides-extras = ["dev", "push", "scraper", "stealth"]
+provides-extras = ["automation", "dev", "push", "source"]
 
 [[package]]
 name = "typer"

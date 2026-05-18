@@ -18,7 +18,7 @@ body:
       label: What happened?
       description: A clear description of the bug. What did you do, what did you expect, what did you get instead?
       placeholder: |
-        I ran `tomymind scrape x` and ...
+        I ran `tomymind fetch x` and ...
     validations:
       required: true
 
@@ -30,7 +30,7 @@ body:
       placeholder: |
         1. `make install`
         2. `make import-cookies-x`
-        3. `make scrape-x`
+        3. `make fetch-x`
       render: shell
     validations:
       required: true
@@ -86,7 +86,7 @@ body:
     id: source
     attributes:
       label: Affected source
-      description: Which scraper / source does this bug affect?
+      description: Which source does this bug affect?
       options:
         - x
         - Multiple

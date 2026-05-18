@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         Thanks for suggesting a new source. The architecture is shaped so
-        adding a source only touches `src/tomymind/scrapers/`, so the more
+        adding a source only touches `src/tomymind/sources/`, so the more
         you can tell us up-front about the source's structure and auth flow,
         the easier it is to pick up later.
 
@@ -17,7 +17,7 @@ body:
         > expect a slower-than-usual triage and no guaranteed timeline.
 
         **First-party only.** tomymind imports *your* bookmarks into *your*
-        mymind library. We won't add sources that scrape other people's
+        mymind library. We won't add sources that pull other people's
         content, search results, or anything not behind your own login.
 
   - type: input
@@ -57,19 +57,19 @@ body:
     id: auth-flow
     attributes:
       label: Authentication flow
-      description: How does login work? This decides whether the scraper can use `tomymind login` or needs the cookie-import path.
+      description: How does login work? This decides whether the source can use `tomymind login` or needs the cookie-import path.
       options:
         - Automated login likely works (regular email/password form, no captcha/2FA wall for headless browsers)
-        - Probably needs cookie-import (anti-bot blocks headless login)
+        - Probably needs cookie-import (source doesn't accept automated browser logins)
         - I don't know
     validations:
       required: true
 
   - type: textarea
-    id: anti-bot
+    id: automation-notes
     attributes:
-      label: Anti-bot considerations
-      description: Anything you know about the source's anti-automation stack (Cloudflare, hCaptcha, Datadome, JS challenges, rate limits, ...).
+      label: Browser automation notes
+      description: Anything you know about the source's compatibility with automated browsers (Cloudflare, hCaptcha, Datadome, JS challenges, rate limits, ...).
     validations:
       required: false
 

@@ -31,7 +31,7 @@ conventions, and the debugging playbook, see [`CLAUDE.md`](CLAUDE.md).
 ## Ground rules
 
 - **First-party data only.** This tool exists to import *your* bookmarks
-  into *your* mymind library. We won't accept PRs that scrape other
+  into *your* mymind library. We won't accept PRs that pull other
   people's content, public search results, or anything not behind your
   own login.
 - **Be gentle with the sources.** No parallel runs against the same
@@ -76,28 +76,28 @@ file encodings first.
 
 ---
 
-## Adding a new scraper
+## Adding a new source
 
 The architecture is shaped so new sources only touch
-`src/tomymind/scrapers/`.
+`src/tomymind/sources/`.
 
-1. Create `src/tomymind/scrapers/<name>.py` with a class subclassing
-   `BaseScraper`. Set `name`, `login_url`, `home_url`. Implement
-   `is_logged_in(page) -> bool` and `scrape(page, limit) -> AsyncIterator[BookmarkItem]`.
-2. Register it in `src/tomymind/scrapers/__init__.py` by adding it to
+1. Create `src/tomymind/sources/<name>.py` with a class subclassing
+   `BaseSource`. Set `name`, `login_url`, `home_url`. Implement
+   `is_logged_in(page) -> bool` and `fetch(page, limit) -> AsyncIterator[BookmarkItem]`.
+2. Register it in `src/tomymind/sources/__init__.py` by adding it to
    `_REGISTRY`.
 3. Add unit tests for the pure parsing helpers under
-   `tests/scrapers/test_<name>.py`. Don't write tests that hit the real
+   `tests/sources/test_<name>.py`. Don't write tests that hit the real
    site.
 
-See [`src/tomymind/scrapers/x.py`](src/tomymind/scrapers/x.py) as a
+See [`src/tomymind/sources/x.py`](src/tomymind/sources/x.py) as a
 worked reference and [`CLAUDE.md`](CLAUDE.md) for the full contract.
 
 ---
 
 ## Commit and PR conventions
 
-- **Keep PRs small and self-contained.** One scraper, one CLI command,
+- **Keep PRs small and self-contained.** One source, one CLI command,
   one bug fix per PR. `main` stays green.
 - **Write meaningful commit messages.** First line is a summary (≤ 72
   chars); body explains the *why* if it isn't obvious.

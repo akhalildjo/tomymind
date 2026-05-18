@@ -19,12 +19,12 @@ class BookmarkItem(BaseModel):
     raw_metadata: dict[str, Any] = Field(default_factory=dict, alias="rawMetadata")
 
 
-class ScrapeResult(BaseModel):
-    """Full output of one scraper run. Serialized as JSON in output/."""
+class FetchResult(BaseModel):
+    """Full output of one source fetch run. Serialized as JSON in output/."""
 
     model_config = ConfigDict(populate_by_name=True)
 
     source: str
-    scraped_at: datetime = Field(default_factory=utcnow, alias="scrapedAt")
+    fetched_at: datetime = Field(default_factory=utcnow, alias="fetchedAt")
     item_count: int = Field(alias="itemCount")
     items: list[BookmarkItem]

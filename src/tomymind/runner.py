@@ -8,20 +8,20 @@ from pathlib import Path
 from playwright.async_api import BrowserContext, async_playwright
 
 from .errors import SessionError
-from .models import BookmarkItem, ScrapeResult
-from .scrapers._base import BaseScraper
+from .models import BookmarkItem, FetchResult
+from .sources._base import BaseSource
 
-__all__ = ["SessionError", "run_import_cookies", "run_login", "run_scrape"]
+__all__ = ["SessionError", "run_fetch", "run_import_cookies", "run_login"]
 
-# Renderer-level AutomationControlled feature is the cheap tell anti-bot
-# stacks key on. Stealth patches (per-scraper, in on_page_ready) cover the
-# JS-level tells, this kills the C++ one.
+# The AutomationControlled feature flag is set by Playwright-driven Chrome
+# by default. Disabling it makes the browser behave like a regular Chrome
+# session, which some sources require to load their full UI.
 _LAUNCH_ARGS = ["--disable-blink-features=AutomationControlled"]
 
-# Realistic browser context. With channel="chrome" we DON'T spoof the UA —
+# Realistic browser context. With channel="chrome" we DON'T override the UA --
 # real Chrome already sends a Chrome UA that matches its actual major
 # version and its Client Hints (Sec-CH-UA). Overriding it creates a
-# mismatch that's trivially detectable. We only spoof the UA when we
+# mismatch that's trivially detectable. We only set the UA when we
 # fall back to bundled Chromium (which otherwise advertises itself).
 _CHROME_CONTEXT_OPTIONS: dict = {
     "viewport": {"width": 1280, "height": 800},
@@ -37,17 +37,17 @@ _CHROMIUM_FALLBACK_CONTEXT_OPTIONS: dict = {
 }
 
 
-async def _launch_persistent(p, scraper: BaseScraper, headless: bool) -> BrowserContext:
+async def _launch_persistent(p, source: BaseSource, headless: bool) -> BrowserContext:
     """Open a persistent context backed by a per-source profile directory.
 
     Tries the system Chrome binary first (channel='chrome') so we get a real
     Chrome fingerprint with matching UA + Client Hints. Falls back to
     Playwright's bundled Chromium with a one-time warning if Chrome isn't
-    installed (and spoofs a Chrome UA in that case since Chromium's default
+    installed (and sets a Chrome UA in that case since Chromium's default
     UA is otherwise a giveaway).
     """
     base: dict = {
-        "user_data_dir": str(scraper.session_path),
+        "user_data_dir": str(source.session_path),
         "headless": headless,
         "args": _LAUNCH_ARGS,
     }
@@ -58,8 +58,8 @@ async def _launch_persistent(p, scraper: BaseScraper, headless: bool) -> Browser
     except Exception:
         print(
             "  note: system Chrome not found, falling back to bundled Chromium. "
-            "Anti-bot detection is weaker against bundled Chromium — install "
-            "Google Chrome for the best results.",
+            "Bundled Chromium is detected as automated more often than real "
+            "Chrome -- install Google Chrome for the best results.",
             file=sys.stderr,
         )
         return await p.chromium.launch_persistent_context(
@@ -72,76 +72,76 @@ def _first_page(context: BrowserContext):
     return context.pages[0] if context.pages else None
 
 
-async def run_login(scraper: BaseScraper) -> None:
-    """Open a visible browser so the user can log in. Profile persists for later scrapes."""
-    scraper.session_path.mkdir(parents=True, exist_ok=True)
+async def run_login(source: BaseSource) -> None:
+    """Open a visible browser so the user can log in. Profile persists for later fetches."""
+    source.session_path.mkdir(parents=True, exist_ok=True)
 
     async with async_playwright() as p:
-        context = await _launch_persistent(p, scraper, headless=False)
+        context = await _launch_persistent(p, source, headless=False)
         try:
-            await scraper.on_context_ready(context)
+            await source.on_context_ready(context)
             page = _first_page(context) or await context.new_page()
-            await scraper.on_page_ready(page)
+            await source.on_page_ready(page)
 
             # Warmup: hit the source's root so the server hands us the
             # bootstrap cookies (guest_id, gt, ct0 ...) that the login API
             # checks. Going straight to /i/flow/login without these is what
             # makes X return 400 on onboarding/task.json.
-            if scraper.warmup_url:
-                await page.goto(scraper.warmup_url, wait_until="domcontentloaded")
+            if source.warmup_url:
+                await page.goto(source.warmup_url, wait_until="domcontentloaded")
                 await asyncio.sleep(2)
 
-            await page.goto(scraper.login_url, wait_until="domcontentloaded")
+            await page.goto(source.login_url, wait_until="domcontentloaded")
 
-            print(f"\n  Log in to '{scraper.name}' in the window that just opened.")
+            print(f"\n  Log in to '{source.name}' in the window that just opened.")
             print("  Once you see your logged-in feed, come back here and press ENTER.\n")
             await asyncio.to_thread(input)
 
-            await page.goto(scraper.home_url, wait_until="domcontentloaded")
-            if not await scraper.is_logged_in(page):
+            await page.goto(source.home_url, wait_until="domcontentloaded")
+            if not await source.is_logged_in(page):
                 raise SessionError(
-                    f"Session not detected for '{scraper.name}'. "
+                    f"Session not detected for '{source.name}'. "
                     "Make sure you're logged in, then re-run the command."
                 )
         finally:
             await context.close()
 
-    print(f"  Chrome profile saved -> {scraper.session_path}")
+    print(f"  Chrome profile saved -> {source.session_path}")
 
 
-async def run_scrape(
-    scraper: BaseScraper,
+async def run_fetch(
+    source: BaseSource,
     limit: int | None,
     output_path: Path,
     headless: bool = True,
-) -> ScrapeResult:
-    """Load the saved Chrome profile and run the scraper, then dump results to JSON."""
-    if not scraper.session_path.exists() or not any(scraper.session_path.iterdir()):
+) -> FetchResult:
+    """Load the saved Chrome profile and run the source, then dump results to JSON."""
+    if not source.session_path.exists() or not any(source.session_path.iterdir()):
         raise SessionError(
-            f"No session for '{scraper.name}'. Run first: tomymind login {scraper.name}"
+            f"No session for '{source.name}'. Run first: tomymind login {source.name}"
         )
 
     items: list[BookmarkItem] = []
     async with async_playwright() as p:
-        context = await _launch_persistent(p, scraper, headless=headless)
+        context = await _launch_persistent(p, source, headless=headless)
         try:
-            await scraper.on_context_ready(context)
+            await source.on_context_ready(context)
             page = _first_page(context) or await context.new_page()
-            await scraper.on_page_ready(page)
+            await source.on_page_ready(page)
 
-            await page.goto(scraper.home_url, wait_until="domcontentloaded")
-            if not await scraper.is_logged_in(page):
+            await page.goto(source.home_url, wait_until="domcontentloaded")
+            if not await source.is_logged_in(page):
                 raise SessionError(
-                    f"Session expired for '{scraper.name}'. Re-run: tomymind login {scraper.name}"
+                    f"Session expired for '{source.name}'. Re-run: tomymind login {source.name}"
                 )
 
-            async for item in scraper.scrape(page, limit=limit):
+            async for item in source.fetch(page, limit=limit):
                 items.append(item)
                 print(f"  [{len(items):>4}] {item.url}")
         finally:
             await context.close()
 
-    result = ScrapeResult(source=scraper.name, item_count=len(items), items=items)
+    result = FetchResult(source=source.name, item_count=len(items), items=items)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
         result.model_dump_json(by_alias=True, indent=2, exclude_none=True),
@@ -150,31 +150,31 @@ async def run_scrape(
     return result
 
 
-async def run_import_cookies(scraper: BaseScraper) -> None:
+async def run_import_cookies(source: BaseSource) -> None:
     """Seed the persistent profile with cookies copied from a logged-in browser.
 
-    Bypasses the login UI entirely — useful when the source's anti-bot stack
-    refuses to let an automated browser through the login flow but accepts
-    valid session cookies as-is.
+    Skips the login UI entirely -- useful when a source doesn't allow
+    automated browser logins but accepts valid session cookies from your
+    own browser as-is.
     """
-    if not scraper.cookie_import_specs or not scraper.cookie_import_domain:
-        raise SessionError(f"'{scraper.name}' doesn't support cookie import yet.")
+    if not source.cookie_import_specs or not source.cookie_import_domain:
+        raise SessionError(f"'{source.name}' doesn't support cookie import yet.")
 
-    host = scraper.cookie_import_domain.lstrip(".")
-    print(f"\n  Importing cookies for '{scraper.name}'.")
+    host = source.cookie_import_domain.lstrip(".")
+    print(f"\n  Importing cookies for '{source.name}'.")
     print(f"  In your already-logged-in Chrome: F12 -> Application -> Cookies -> https://{host}")
     print("  Copy each cookie's value below and paste it here.\n")
 
     # Without an explicit expires, Playwright marks the cookie as session-only
     # and Chromium NEVER writes it to the on-disk Cookies SQLite file. So the
     # values would be gone the next time we open the persistent profile, and
-    # the scrape would fail with "Session expired" -- exactly the bug we hit.
+    # the fetch would fail with "Session expired" -- exactly the bug we hit.
     # 30 days matches X's own auth_token lifetime; the server-side check is
     # what actually decides if the token is still valid.
     expires = int(time.time()) + 30 * 24 * 3600
 
     cookies_to_add: list[dict] = []
-    for name, extra in scraper.cookie_import_specs.items():
+    for name, extra in source.cookie_import_specs.items():
         value = (await asyncio.to_thread(input, f"  {name} = ")).strip()
         if not value:
             raise SessionError(f"Empty value for '{name}', aborting.")
@@ -182,7 +182,7 @@ async def run_import_cookies(scraper: BaseScraper) -> None:
             {
                 "name": name,
                 "value": value,
-                "domain": scraper.cookie_import_domain,
+                "domain": source.cookie_import_domain,
                 "path": "/",
                 "secure": True,
                 "expires": expires,
@@ -190,29 +190,29 @@ async def run_import_cookies(scraper: BaseScraper) -> None:
             }
         )
 
-    scraper.session_path.mkdir(parents=True, exist_ok=True)
+    source.session_path.mkdir(parents=True, exist_ok=True)
     async with async_playwright() as p:
-        context = await _launch_persistent(p, scraper, headless=True)
+        context = await _launch_persistent(p, source, headless=True)
         try:
-            await scraper.on_context_ready(context)
+            await source.on_context_ready(context)
             await context.add_cookies(cookies_to_add)
 
             # Verify NOW, while the context is still open, that the cookies
             # actually grant a logged-in session. If we don't, a typo or
-            # expired token only surfaces on the next `scrape` run with a
+            # expired token only surfaces on the next `fetch` run with a
             # confusing "Session expired" error.
             page = _first_page(context) or await context.new_page()
-            await scraper.on_page_ready(page)
-            await page.goto(scraper.home_url, wait_until="domcontentloaded")
-            if not await scraper.is_logged_in(page):
+            await source.on_page_ready(page)
+            await page.goto(source.home_url, wait_until="domcontentloaded")
+            if not await source.is_logged_in(page):
                 raise SessionError(
-                    f"The provided cookies don't grant access to '{scraper.name}'. "
+                    f"The provided cookies don't grant access to '{source.name}'. "
                     "Make sure you copied auth_token and ct0 from a Chrome "
                     f"logged in to {host}, with no extra spaces or quotes."
                 )
-            print(f"\n  Session verified -- you are logged in to '{scraper.name}'.")
+            print(f"\n  Session verified -- you are logged in to '{source.name}'.")
         finally:
             await context.close()
 
-    print(f"  Cookies saved to profile -> {scraper.session_path}")
-    print(f"  You can now scrape: tomymind scrape {scraper.name}")
+    print(f"  Cookies saved to profile -> {source.session_path}")
+    print(f"  You can now fetch: tomymind fetch {source.name}")

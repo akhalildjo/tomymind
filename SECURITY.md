@@ -55,7 +55,7 @@ Out of scope:
   us know if a dependency CVE affects tomymind so we can pin or patch).
 - The mymind API itself — please report those to
   [mymind](https://mymind.com) directly.
-- The source sites that tomymind scrapes (x.com, etc.) — report those
+- The source sites that tomymind reads from (x.com, etc.) — report those
   to the respective vendors.
 
 ## Handling credentials in reports

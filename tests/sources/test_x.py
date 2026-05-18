@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
-from tomymind.scrapers.x import XScraper
+from tomymind.sources.x import XSource
 
-parse = XScraper._parse_tweet_href
+parse = XSource._parse_tweet_href
 
 
 class TestParseTweetHrefMatches:
@@ -106,16 +106,16 @@ def _make_page(url: str = "https://x.com/i/bookmarks", *, selector_side_effect):
     return page
 
 
-class TestScrapeTimeoutDiagnostic:
+class TestFetchTimeoutDiagnostic:
     async def test_warns_to_stderr_and_yields_nothing(
         self, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        scraper = XScraper()
+        source = XSource()
         page = _make_page(
             selector_side_effect=PlaywrightTimeoutError("simulated timeout"),
         )
 
-        items = [item async for item in scraper.scrape(page)]
+        items = [item async for item in source.fetch(page)]
 
         assert items == []
         captured = capsys.readouterr()
@@ -125,11 +125,11 @@ class TestScrapeTimeoutDiagnostic:
         assert "tomymind login x" in captured.err
 
     async def test_non_timeout_exception_propagates(self) -> None:
-        scraper = XScraper()
+        source = XSource()
         page = _make_page(
             selector_side_effect=RuntimeError("browser crashed"),
         )
 
         with pytest.raises(RuntimeError, match="browser crashed"):
-            async for _ in scraper.scrape(page):
+            async for _ in source.fetch(page):
                 pass

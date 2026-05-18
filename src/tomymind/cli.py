@@ -7,8 +7,8 @@ from pathlib import Path
 import typer
 
 from .errors import SessionError
-from .runner import run_import_cookies, run_login, run_scrape
-from .scrapers import available_scrapers, get_scraper
+from .runner import run_fetch, run_import_cookies, run_login
+from .sources import available_sources, get_source
 
 app = typer.Typer(
     help="Multi-source bookmark importer for mymind.com",
@@ -17,9 +17,9 @@ app = typer.Typer(
 )
 
 
-def _resolve_scraper(source: str):
+def _resolve_source(source: str):
     try:
-        return get_scraper(source)
+        return get_source(source)
     except ValueError as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=2) from exc
@@ -27,20 +27,20 @@ def _resolve_scraper(source: str):
 
 @app.command(help="Open a browser to log into a source, then save the session.")
 def login(
-    source: str = typer.Argument(..., help=f"One of: {', '.join(available_scrapers())}"),
+    source: str = typer.Argument(..., help=f"One of: {', '.join(available_sources())}"),
 ):
-    scraper = _resolve_scraper(source)
+    source_obj = _resolve_source(source)
     try:
-        asyncio.run(run_login(scraper))
+        asyncio.run(run_login(source_obj))
     except SessionError as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=1) from exc
 
 
-@app.command(help="Scrape bookmarks from a source using its saved session.")
-def scrape(
-    source: str = typer.Argument(..., help=f"One of: {', '.join(available_scrapers())}"),
-    limit: int | None = typer.Option(None, help="Max bookmarks to scrape."),
+@app.command(help="Fetch bookmarks from a source using its saved session.")
+def fetch(
+    source: str = typer.Argument(..., help=f"One of: {', '.join(available_sources())}"),
+    limit: int | None = typer.Option(None, help="Max bookmarks to fetch."),
     output: Path | None = typer.Option(
         None, help="Output JSON path. Defaults to output/<source>_bookmarks.json."
     ),
@@ -48,12 +48,12 @@ def scrape(
         False, "--show-browser", help="Run the browser visibly (disables headless)."
     ),
 ):
-    scraper = _resolve_scraper(source)
+    source_obj = _resolve_source(source)
     out_path = output or Path("output") / f"{source}_bookmarks.json"
     try:
         result = asyncio.run(
-            run_scrape(
-                scraper,
+            run_fetch(
+                source_obj,
                 limit=limit,
                 output_path=out_path,
                 headless=not show_browser,
@@ -70,25 +70,25 @@ def scrape(
     help="Paste session cookies from a logged-in browser to skip the login flow.",
 )
 def import_cookies(
-    source: str = typer.Argument(..., help=f"One of: {', '.join(available_scrapers())}"),
+    source: str = typer.Argument(..., help=f"One of: {', '.join(available_sources())}"),
 ):
-    scraper = _resolve_scraper(source)
+    source_obj = _resolve_source(source)
     try:
-        asyncio.run(run_import_cookies(scraper))
+        asyncio.run(run_import_cookies(source_obj))
     except SessionError as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=1) from exc
 
 
-@app.command(help="List the source scrapers currently available.")
+@app.command(help="List the sources currently available.")
 def sources():
-    for name in available_scrapers():
+    for name in available_sources():
         typer.echo(name)
 
 
-@app.command(help="Push scraped bookmarks to mymind.com via POST /objects.")
+@app.command(help="Push fetched bookmarks to mymind.com via POST /objects.")
 def push(
-    source: str = typer.Argument(..., help=f"One of: {', '.join(available_scrapers())}"),
+    source: str = typer.Argument(..., help=f"One of: {', '.join(available_sources())}"),
     input: Path | None = typer.Option(
         None,
         "--input",
@@ -101,7 +101,7 @@ def push(
     ),
 ):
     # Lazy imports: pyjwt + httpx + python-dotenv only kick in for this
-    # command, so users who only scrape don't need the `push` extra.
+    # command, so users who only fetch don't need the `push` extra.
     try:
         from dotenv import load_dotenv
 
@@ -109,7 +109,7 @@ def push(
         from .push import run_push
     except ImportError as exc:
         typer.echo(
-            f"error: missing dep ({exc}). Run: uv sync --extra scraper --extra push",
+            f"error: missing dep ({exc}). Run: uv sync --extra source --extra push",
             err=True,
         )
         raise typer.Exit(code=2) from exc

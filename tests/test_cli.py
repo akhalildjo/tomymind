@@ -20,17 +20,17 @@ _FAKE_SECRET_B64 = base64.b64encode(b"\x01" * 32).decode()
 def test_help_lists_all_commands() -> None:
     result = _runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    for sub in ("login", "scrape", "import-cookies", "push", "sources"):
+    for sub in ("login", "fetch", "import-cookies", "push", "sources"):
         assert sub in result.stdout
 
 
-def test_sources_prints_registered_scrapers() -> None:
+def test_sources_prints_registered_sources() -> None:
     result = _runner.invoke(app, ["sources"])
     assert result.exit_code == 0
     assert "x" in result.stdout.split()
 
 
-@pytest.mark.parametrize("command", ["login", "scrape", "import-cookies"])
+@pytest.mark.parametrize("command", ["login", "fetch", "import-cookies"])
 def test_unknown_source_exits_2(command: str) -> None:
     result = _runner.invoke(app, [command, "totally-unknown"])
     assert result.exit_code == 2
@@ -56,21 +56,21 @@ def test_login_session_error_exits_1() -> None:
     assert "error: boom" in result.stderr
 
 
-def test_scrape_session_error_exits_1(tmp_path: Path) -> None:
-    with patch("tomymind.cli.run_scrape", new=AsyncMock(side_effect=SessionError("boom"))):
-        result = _runner.invoke(app, ["scrape", "x", "--output", str(tmp_path / "out.json")])
+def test_fetch_session_error_exits_1(tmp_path: Path) -> None:
+    with patch("tomymind.cli.run_fetch", new=AsyncMock(side_effect=SessionError("boom"))):
+        result = _runner.invoke(app, ["fetch", "x", "--output", str(tmp_path / "out.json")])
     assert result.exit_code == 1
     assert "error: boom" in result.stderr
 
 
-def test_scrape_success_prints_summary(tmp_path: Path) -> None:
+def test_fetch_success_prints_summary(tmp_path: Path) -> None:
     out_path = tmp_path / "out.json"
 
-    from tomymind.models import ScrapeResult
+    from tomymind.models import FetchResult
 
-    fake_result = ScrapeResult(source="x", item_count=3, items=[])
-    with patch("tomymind.cli.run_scrape", new=AsyncMock(return_value=fake_result)):
-        result = _runner.invoke(app, ["scrape", "x", "--output", str(out_path)])
+    fake_result = FetchResult(source="x", item_count=3, items=[])
+    with patch("tomymind.cli.run_fetch", new=AsyncMock(return_value=fake_result)):
+        result = _runner.invoke(app, ["fetch", "x", "--output", str(out_path)])
 
     assert result.exit_code == 0
     assert "Done. 3 bookmarks" in result.stdout
