@@ -11,13 +11,13 @@ from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from ..errors import SessionError
 from ..models import BookmarkItem
-from ._base import BaseScraper
+from ._base import BaseSource
 
 _TWEET_PATH_RE = re.compile(r"^/([^/]+)/status/(\d+)(?:/|$|\?)")
 _X_HOSTS = {"x.com", "twitter.com", "www.x.com", "www.twitter.com", ""}
 
 
-class XScraper(BaseScraper):
+class XSource(BaseSource):
     name = "x"
     login_url = "https://x.com/i/flow/login"
     home_url = "https://x.com/home"
@@ -27,7 +27,8 @@ class XScraper(BaseScraper):
     warmup_url = "https://x.com/"
     # Cookies the user can paste from a logged-in Chrome to skip login.
     # auth_token is the session bearer; ct0 is the CSRF token X embeds in
-    # every authenticated XHR. With both, X treats us as the logged-in user.
+    # every authenticated XHR. With both, the source treats us as the
+    # logged-in user.
     cookie_import_domain = ".x.com"
     cookie_import_specs = {
         "auth_token": {"httpOnly": True, "sameSite": "None"},
@@ -39,15 +40,17 @@ class XScraper(BaseScraper):
     _scroll_pause_sec = 1.8
 
     async def on_page_ready(self, page: Page) -> None:
-        # X aggressively fingerprints Playwright. tf-playwright-stealth patches
-        # navigator.webdriver, plugins, languages, WebGL and other tells via an
-        # init script that runs before any page JS. Requires `--extra stealth`.
+        # X's login flow doesn't accept default automated browsers. The
+        # 'automation' extra installs playwright-stealth, which adjusts
+        # browser-context signals (navigator.webdriver, plugins, languages,
+        # WebGL, ...) via an init script so the session looks like a regular
+        # Chrome user.
         try:
             from playwright_stealth import stealth_async
         except ImportError as exc:
             raise SessionError(
-                "X requires the 'stealth' extra to bypass anti-bot detection. "
-                "Run: uv sync --extra scraper --extra stealth"
+                "X requires the 'automation' extra for browser session compatibility. "
+                "Run: uv sync --extra source --extra automation"
             ) from exc
         await stealth_async(page)
 
@@ -61,7 +64,7 @@ class XScraper(BaseScraper):
             return False
         return "/login" not in page.url and "/i/flow/login" not in page.url
 
-    async def scrape(self, page: Page, limit: int | None = None) -> AsyncIterator[BookmarkItem]:
+    async def fetch(self, page: Page, limit: int | None = None) -> AsyncIterator[BookmarkItem]:
         await page.goto(self.bookmarks_url, wait_until="domcontentloaded")
 
         if "/login" in page.url or "/i/flow/login" in page.url:
@@ -76,7 +79,7 @@ class XScraper(BaseScraper):
                 f"  warning: no tweets found within 20s on {page.url!r}. "
                 "Possible causes: empty bookmarks, expired session, or X DOM change. "
                 "Re-run `tomymind login x` to refresh the session, "
-                "or `tomymind scrape x --show-browser` to inspect visually.",
+                "or `tomymind fetch x --show-browser` to inspect visually.",
                 file=sys.stderr,
             )
             return

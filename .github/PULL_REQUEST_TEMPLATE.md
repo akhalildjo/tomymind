@@ -13,7 +13,7 @@
   Maintainers: continue with this PR template below.
 ============================================================================
 
-Keep PRs small and self-contained: one scraper, one CLI command, one bug
+Keep PRs small and self-contained: one source, one CLI command, one bug
 fix per PR. `main` stays green. See CONTRIBUTING.md for the gitflow rules
 (release/* and hotfix/* branches).
 -->
@@ -28,7 +28,7 @@ fix per PR. `main` stays green. See CONTRIBUTING.md for the gitflow rules
 
 - [ ] Bug fix (non-breaking change which fixes an issue)
 - [ ] New feature (non-breaking change which adds functionality)
-- [ ] New scraper (new source under `src/tomymind/scrapers/`)
+- [ ] New source (new connector under `src/tomymind/sources/`)
 - [ ] Breaking change (fix or feature that would cause existing behavior to change)
 - [ ] Documentation / DX (README, CLAUDE.md, comments, CI, Makefile)
 - [ ] Refactor (no behavior change)
@@ -47,7 +47,7 @@ fix per PR. `main` stays green. See CONTRIBUTING.md for the gitflow rules
 
 <!--
 Which `make` targets / commands did you run? Which OS(es)? If it's a
-scraper change, did you run it end-to-end against the real source with
+source change, did you run it end-to-end against the real source with
 your own account?
 -->
 

@@ -1,6 +1,6 @@
-"""Push scraped bookmarks into mymind via POST /objects.
+"""Push fetched bookmarks into mymind via POST /objects.
 
-Reads `output/<source>_bookmarks.json` produced by `tomymind scrape`,
+Reads `output/<source>_bookmarks.json` produced by `tomymind fetch`,
 skips IDs already in the local ledger `output/.pushed_<source>.json`,
 sends the rest to mymind. The ledger is rewritten after every successful
 POST so Ctrl+C is safe -- the next run resumes exactly where we stopped.
@@ -17,7 +17,7 @@ import json
 from pathlib import Path
 
 from .errors import SessionError
-from .models import ScrapeResult
+from .models import FetchResult
 from .mymind_client import DEFAULT_BASE_URL, MymindClient, MymindCreds
 
 
@@ -43,16 +43,16 @@ async def run_push(
     """Push pending bookmarks. Returns (created, existed, failed) counts."""
     if not input_path.exists():
         raise SessionError(
-            f"No scraped bookmarks for '{source}' at {input_path}. "
-            f"Run first: tomymind scrape {source}"
+            f"No fetched bookmarks for '{source}' at {input_path}. "
+            f"Run first: tomymind fetch {source}"
         )
 
-    result = ScrapeResult.model_validate_json(input_path.read_text(encoding="utf-8"))
+    result = FetchResult.model_validate_json(input_path.read_text(encoding="utf-8"))
     already_pushed = load_ledger(ledger_path)
     pending = [it for it in result.items if it.source_item_id not in already_pushed]
 
     print(
-        f"  {len(result.items)} scraped, {len(already_pushed)} already pushed, "
+        f"  {len(result.items)} fetched, {len(already_pushed)} already pushed, "
         f"{len(pending)} to send."
     )
     if not pending:

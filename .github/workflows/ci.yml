@@ -39,7 +39,7 @@ jobs:
         run: uv python install 3.12
 
       - name: Install dependencies
-        run: uv sync --extra scraper --extra stealth --extra push --extra dev
+        run: uv sync --extra source --extra automation --extra push --extra dev
 
       - name: ruff check
         run: uv run ruff check .
@@ -67,12 +67,12 @@ jobs:
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
 
-      # We install every extra so the test suite can import scraper, push and
+      # We install every extra so the test suite can import source, push and
       # dev modules. We deliberately do NOT run `playwright install chromium`:
       # the unit tests mock the Page object, browser binaries are ~300 MB and
       # add minutes per matrix cell with no test coverage win.
       - name: Install dependencies
-        run: uv sync --python ${{ matrix.python-version }} --extra scraper --extra stealth --extra push --extra dev
+        run: uv sync --python ${{ matrix.python-version }} --extra source --extra automation --extra push --extra dev
 
       - name: Run pytest
         run: uv run pytest -v --cov=tomymind --cov-report=term-missing

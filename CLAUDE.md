@@ -14,22 +14,22 @@ no daemon, no Docker. The three-step user flow per source is:
 
 1. **Get a session** -- either `tomymind login <source>` (visible Chromium,
    manual login) or `tomymind import-cookies <source>` (paste session cookies
-   from an already-logged-in browser, faster and dodges anti-bot stacks that
-   refuse automated browsers).
-2. **Scrape** -- `tomymind scrape <source>` writes
+   from an already-logged-in browser, faster and skips the login UI for
+   sources that don't accept automated browser logins).
+2. **Fetch** -- `tomymind fetch <source>` writes
    `output/<source>_bookmarks.json` headlessly.
 3. **Push** -- `tomymind push <source>` reads that JSON, POSTs each URL to
    `https://api.mymind.com/objects` with a per-request HS256 JWT, writes a
    ledger of pushed IDs so Ctrl+C is resumable.
 
 Sources today: **X**. The architecture is shaped so adding new sources only
-touches `src/tomymind/scrapers/`.
+touches `src/tomymind/sources/`.
 
 **Login is intentionally a manual operation on the host.** The login flow
 needs a visible Chromium window so the user can type credentials and clear
 any 2FA / captcha; automating it is out of scope. The cookie-import path
-skips the login UI entirely for sources whose anti-bot stack refuses
-automated browsers at the login screen (X's case today).
+skips the login UI entirely for sources that don't accept automated browser
+logins (X's case today).
 
 ## Portability
 
@@ -59,14 +59,14 @@ own extra:
 
 ```bash
 # Dev setup
-uv sync --extra scraper --extra stealth --extra push --extra dev
+uv sync --extra source --extra automation --extra push --extra dev
 uv run playwright install chromium
 
 # `tomymind` is the only console script. All commands are host-side, manual.
 uv run tomymind sources
 uv run tomymind login <source>              # visible Chromium, user logs in, ENTER to save
 uv run tomymind import-cookies <source>     # paste session cookies, no UI login
-uv run tomymind scrape <source> [--limit N] [--show-browser] [--output PATH]
+uv run tomymind fetch <source> [--limit N] [--show-browser] [--output PATH]
 uv run tomymind push <source> [--input PATH] [--ledger PATH]
 
 # Quality gates
@@ -77,7 +77,7 @@ uv run pytest path/to/test_file.py::test_name -v
 ```
 
 `sessions/<source>/` (persistent Chrome user-data dir, drives
-`launch_persistent_context`), `output/*.json` (scraped bookmarks), and
+`launch_persistent_context`), `output/*.json` (fetched bookmarks), and
 `output/.pushed_<source>.json` (push ledger) are gitignored -- never commit
 them. `.env` is gitignored too; `.env.example` ships the template.
 
@@ -85,8 +85,8 @@ them. `.env` is gitignored too; `.env.example` ships the template.
 
 | Extra | Purpose | Pulls in |
 |---|---|---|
-| `scraper` | `tomymind login` / `import-cookies` / `scrape` | playwright, typer, python-dotenv |
-| `stealth` | anti-bot evasion (X, future Instagram) | tf-playwright-stealth |
+| `source` | `tomymind login` / `import-cookies` / `fetch` | playwright, typer, python-dotenv |
+| `automation` | browser session compatibility (X, future Instagram) | tf-playwright-stealth |
 | `push` | `tomymind push` (mymind API client + JWT signing) | httpx, pyjwt |
 | `dev` | tests + lint | pytest, pytest-asyncio, ruff |
 
@@ -97,10 +97,10 @@ them. `.env` is gitignored too; `.env.example` ships the template.
 Everything is one process per CLI invocation, all on the host:
 
 ```
-   cli.py  ──▶  runner.py  ──▶  Playwright  ──▶  scraper.scrape(page)  ──▶  output/<source>_bookmarks.json
+   cli.py  ──▶  runner.py  ──▶  Playwright  ──▶  source.fetch(page)  ──▶  output/<source>_bookmarks.json
                     ↑                ↑
-                    │                └── BaseScraper subclass picked from
-                    │                     scrapers/__init__._REGISTRY
+                    │                └── BaseSource subclass picked from
+                    │                     sources/__init__._REGISTRY
                     └── loads sessions/<source>/ (persistent Chrome profile)
 
    cli.py  ──▶  push.py  ──▶  mymind_client.py  ──▶  POST https://api.mymind.com/objects
@@ -112,11 +112,11 @@ Everything is one process per CLI invocation, all on the host:
                   └── output/<source>_bookmarks.json
 ```
 
-- `cli.py` parses args and resolves the scraper via `scrapers.get_scraper(name)`.
+- `cli.py` parses args and resolves the source via `sources.get_source(name)`.
 - `runner.run_login` opens a **non-headless** browser via
   `launch_persistent_context` (prefers system Chrome via `channel="chrome"`,
   falls back to bundled Chromium), awaits stdin on a worker thread, then
-  calls `scraper.is_logged_in(page)` against `scraper.home_url`. The profile
+  calls `source.is_logged_in(page)` against `source.home_url`. The profile
   dir at `sessions/<source>/` persists on its own — no explicit
   `storage_state` dump needed.
 - `runner.run_import_cookies` is the cookie-paste alternative: prompts for the
@@ -124,16 +124,16 @@ Everything is one process per CLI invocation, all on the host:
   into the persistent profile with a 30-day `expires` (without it Chromium
   treats them as session cookies and never writes them to disk), then
   verifies `is_logged_in` before exiting so a wrong/expired token surfaces
-  immediately instead of at the next scrape.
-- `runner.run_scrape` reopens the same persistent profile, navigates to `home_url`,
-  re-checks `is_logged_in`, then iterates `scraper.scrape(page, limit)`. Items
+  immediately instead of at the next fetch.
+- `runner.run_fetch` reopens the same persistent profile, navigates to `home_url`,
+  re-checks `is_logged_in`, then iterates `source.fetch(page, limit)`. Items
   are streamed (`async for`) so progress is visible and the run can stop on
   `--limit`.
-- `push.run_push` reads the scrape JSON, filters out items whose
+- `push.run_push` reads the fetch JSON, filters out items whose
   `source_item_id` is already in the local ledger, and hands each remaining
   item to `mymind_client.MymindClient.create_object`. The ledger is
   persisted to `output/.pushed_<source>.json` and survives across runs, so
-  re-running `push` after a Ctrl+C or after a fresh `scrape` only sends
+  re-running `push` after a Ctrl+C or after a fresh `fetch` only sends
   what hasn't been sent yet from this machine. Cross-machine / cross-install
   dedup is not done client-side; mymind's native server-side URL dedup
   (existing URL → `200 OK`, refreshes `bumped`) is the safety net.
@@ -144,47 +144,47 @@ Everything is one process per CLI invocation, all on the host:
 
 ### Key conventions
 
-- **`SessionError` lives in `tomymind.errors`**, not in `runner.py`. Scrapers
-  raise it (e.g. when a protected page redirects to login mid-scrape) so the
+- **`SessionError` lives in `tomymind.errors`**, not in `runner.py`. Sources
+  raise it (e.g. when a protected page redirects to login mid-run) so the
   CLI's friendly handler catches it. Avoid creating an inverse
-  `scrapers → runner` import.
-- **Scrapers must yield, not return lists.** `BaseScraper.scrape` is typed as
+  `sources → runner` import.
+- **Sources must yield, not return lists.** `BaseSource.fetch` is typed as
   `AsyncIterator[BookmarkItem]`; the runner relies on streaming for the
-  progress UI and the `--limit` early-exit. If you override `scrape` with an
+  progress UI and the `--limit` early-exit. If you override `fetch` with an
   `async def` that has no `yield` in its body, it becomes a coroutine instead
   of an async generator and the runner's `async for` crashes with
   `TypeError: 'coroutine' object is not async iterable`.
-- **Dedup by `source_item_id` inside a single run** is the scraper's job (X
+- **Dedup by `source_item_id` inside a single run** is the source's job (X
   uses a `seen_ids: set[str]`). Cross-run dedup at push time is handled by
   the local ledger (`output/.pushed_<source>.json`) plus mymind's native
   URL dedup.
-- **Idle-scroll termination**: infinite-scroll scrapers stop after N
+- **Idle-scroll termination**: infinite-scroll sources stop after N
   consecutive scrolls that reveal no new items *and* no height change. See
-  `XScraper._idle_scroll_limit` for the X tuning.
+  `XSource._idle_scroll_limit` for the X tuning.
 
-## Adding a new scraper
+## Adding a new source
 
-1. Create `src/tomymind/scrapers/<name>.py` with a class subclassing
-   `BaseScraper`. Set `name`, `login_url`, `home_url`. Implement
+1. Create `src/tomymind/sources/<name>.py` with a class subclassing
+   `BaseSource`. Set `name`, `login_url`, `home_url`. Implement
    `is_logged_in(page) -> bool` (check a UI element that only exists when
-   authenticated) and `scrape(page, limit) -> AsyncIterator[BookmarkItem]`.
-2. Register it in `src/tomymind/scrapers/__init__.py` by adding it to
+   authenticated) and `fetch(page, limit) -> AsyncIterator[BookmarkItem]`.
+2. Register it in `src/tomymind/sources/__init__.py` by adding it to
    `_REGISTRY`. `tomymind sources` will pick it up automatically.
-3. All four CLI commands (`login`, `import-cookies`, `scrape`, `push`)
+3. All four CLI commands (`login`, `import-cookies`, `fetch`, `push`)
    then work against the new source without any further wiring.
 
-For sources with strong anti-bot detection (X needs it today; sources like
-Instagram likely will too), override `on_page_ready(page)` to apply
-`playwright_stealth.stealth_async` before the first navigation, and throttle
-scroll/click cadence. `on_context_ready` is the place for context-wide
-things (extra headers, cookies); stealth is page-level because it relies on
-`page.add_init_script`.
+For sources that need browser-context compatibility tweaks (X needs it today;
+sources like Instagram likely will too), override `on_page_ready(page)` to
+apply `playwright_stealth.stealth_async` before the first navigation, and
+throttle scroll/click cadence. `on_context_ready` is the place for
+context-wide things (extra headers, cookies); the page-level hook is needed
+because `playwright_stealth` relies on `page.add_init_script`.
 
-## Debugging a flaky scraper
+## Debugging a flaky source
 
-- **Run visibly**: `uv run tomymind scrape <source> --show-browser` to watch
+- **Run visibly**: `uv run tomymind fetch <source> --show-browser` to watch
   the live DOM.
-- **Pause mid-run**: drop `await page.pause()` inside `scrape()` to open the
+- **Pause mid-run**: drop `await page.pause()` inside `fetch()` to open the
   Playwright Inspector with step-through and a selector picker.
 - **Selector priority**: `data-testid` > stable `aria-*` > semantic tag. Avoid
   CSS classes (Instagram/X obfuscate them per build).
@@ -200,11 +200,11 @@ things (extra headers, cookies); stealth is page-level because it relies on
 
 - **Do NOT write E2E tests that hit real x.com / instagram.com / pinterest.com.**
   Live pages change, accounts get rate-limited, CI becomes red noise. Cover
-  scrapers via **unit tests on the pure parsing helpers**
+  sources via **unit tests on the pure parsing helpers**
   (`_parse_tweet_href`, future `_parse_pin_link`, …) with hard-coded HREF
   fixtures including reserved-path / weird-handle cases.
 - Tests go under `tests/` mirroring `src/tomymind/` (e.g.
-  `tests/scrapers/test_x.py`). `asyncio_mode=auto` is already set, so use
+  `tests/sources/test_x.py`). `asyncio_mode=auto` is already set, so use
   `async def test_*` freely.
 
 ## mymind API
@@ -216,7 +216,7 @@ this; this section is the spec it follows.
 
 - **Strategy**: ship URLs only (plus optional tags). mymind extracts title,
   screenshot, preview and metadata server-side. **Don't pre-fetch pages,
-  scrape Open Graph tags, or generate screenshots client-side.**
+  read Open Graph tags, or generate screenshots client-side.**
 - **Auth**: HS256 JWT signed per request. Header `kid`, claims `path`
   (e.g. `/objects`, no `/api` prefix), `method` (uppercase), `iat`, `exp`
   (recommended `iat + 300`). Bearer in `Authorization`. `User-Agent`
@@ -248,8 +248,17 @@ this; this section is the spec it follows.
   source requests, security advisories stay open, but external PRs are
   not accepted right now. Agents working on this repo should still
   follow PR-based workflows (no direct commits to `main`).
-- Keep PRs small and self-contained: one scraper / one CLI command / one
+- Keep PRs small and self-contained: one source / one CLI command / one
   bug fix per PR. `main` stays green.
+- **Always resolve review conversations once they're addressed.** The
+  `main` branch ruleset requires every conversation to be resolved
+  before merge; an unresolved Copilot / reviewer comment will block
+  the PR with "A conversation must be resolved before this pull
+  request can be merged." Resolve via the GitHub UI ("Resolve
+  conversation") or the MCP `resolve_review_thread` tool — including
+  threads you skip intentionally, with a one-line reply explaining
+  why. Never bypass the rule with admin merge unless explicitly
+  asked.
 - An earlier iteration scaffolded a NATS JetStream + Docker importer
   architecture for an automated event-driven flow; that path was dropped
   in favor of the simpler "manual CLI per source" flow you see today. If

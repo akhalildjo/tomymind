@@ -13,18 +13,18 @@ Initial public release.
 
 ### Added
 
-- `tomymind` CLI with `sources`, `login`, `import-cookies`, `scrape` and
+- `tomymind` CLI with `sources`, `login`, `import-cookies`, `fetch` and
   `push` commands.
-- X (Twitter) scraper for `/i/bookmarks` with infinite-scroll handling,
-  in-run dedup by `source_item_id`, and a stealth-patched persistent
-  Chrome profile per source.
-- Cookie-import flow for sources whose anti-bot stack rejects automated
+- X (Twitter) source connector for `/i/bookmarks` with infinite-scroll
+  handling, in-run dedup by `source_item_id`, and a persistent Chrome
+  profile per source for browser session compatibility.
+- Cookie-import flow for sources that don't accept automated browser
   logins (X today).
 - `push` command: HS256 JWT signer per request, rate-limit-aware client
   that honors `RateLimit` headers, 5xx exponential backoff, and a local
   resumable ledger (`output/.pushed_<source>.json`).
 - Cross-platform Makefile with `install`, `lint`, `test`, `cli`,
-  `check`, and per-source `login-x` / `import-cookies-x` / `scrape-x` /
+  `check`, and per-source `login-x` / `import-cookies-x` / `fetch-x` /
   `push-x` targets.
 - Continuous integration on GitHub Actions: lint + tests across Linux,
   macOS, and Windows on Python 3.12 / 3.13 / 3.14, plus an sdist + wheel

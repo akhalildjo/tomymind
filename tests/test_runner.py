@@ -9,11 +9,11 @@ import pytest
 
 from tomymind.errors import SessionError
 from tomymind.models import BookmarkItem
-from tomymind.runner import run_import_cookies, run_login, run_scrape
-from tomymind.scrapers._base import BaseScraper
+from tomymind.runner import run_fetch, run_import_cookies, run_login
+from tomymind.sources._base import BaseSource
 
 
-class _FakeScraper(BaseScraper):
+class _FakeSource(BaseSource):
     name = "fake"
     login_url = "https://example.com/login"
     home_url = "https://example.com/home"
@@ -39,12 +39,12 @@ class _FakeScraper(BaseScraper):
     async def is_logged_in(self, page) -> bool:  # noqa: ARG002
         return self._logged_in
 
-    async def scrape(self, page, limit=None) -> AsyncIterator[BookmarkItem]:  # noqa: ARG002
+    async def fetch(self, page, limit=None) -> AsyncIterator[BookmarkItem]:  # noqa: ARG002
         for item in self._items:
             yield item
 
 
-class _CookieScraper(_FakeScraper):
+class _CookieSource(_FakeSource):
     cookie_import_domain = ".example.com"
     cookie_import_specs = {"auth": {"httpOnly": True, "sameSite": "Lax"}}
 
@@ -70,35 +70,35 @@ def _patch_playwright(context: MagicMock):
     return patch("tomymind.runner.async_playwright", return_value=pw_ctx)
 
 
-# --- run_scrape ----------------------------------------------------------
+# --- run_fetch -----------------------------------------------------------
 
 
-async def test_run_scrape_missing_session_dir_raises(tmp_path: Path) -> None:
-    scraper = _FakeScraper(session_dir=tmp_path / "nope")
+async def test_run_fetch_missing_session_dir_raises(tmp_path: Path) -> None:
+    source = _FakeSource(session_dir=tmp_path / "nope")
     with pytest.raises(SessionError, match="No session for 'fake'"):
-        await run_scrape(scraper, limit=None, output_path=tmp_path / "out.json")
+        await run_fetch(source, limit=None, output_path=tmp_path / "out.json")
 
 
-async def test_run_scrape_empty_session_dir_raises(tmp_path: Path) -> None:
+async def test_run_fetch_empty_session_dir_raises(tmp_path: Path) -> None:
     empty = tmp_path / "session"
     empty.mkdir()
-    scraper = _FakeScraper(session_dir=empty)
+    source = _FakeSource(session_dir=empty)
     with pytest.raises(SessionError, match="No session for 'fake'"):
-        await run_scrape(scraper, limit=None, output_path=tmp_path / "out.json")
+        await run_fetch(source, limit=None, output_path=tmp_path / "out.json")
 
 
-async def test_run_scrape_session_expired_raises(tmp_path: Path) -> None:
+async def test_run_fetch_session_expired_raises(tmp_path: Path) -> None:
     session = tmp_path / "session"
     session.mkdir()
     (session / "marker").write_text("x", encoding="utf-8")
-    scraper = _FakeScraper(session_dir=session, logged_in=False)
+    source = _FakeSource(session_dir=session, logged_in=False)
     context, _ = _make_context_and_page()
 
     with _patch_playwright(context), pytest.raises(SessionError, match="expired for 'fake'"):
-        await run_scrape(scraper, limit=None, output_path=tmp_path / "out.json")
+        await run_fetch(source, limit=None, output_path=tmp_path / "out.json")
 
 
-async def test_run_scrape_writes_json_output(tmp_path: Path) -> None:
+async def test_run_fetch_writes_json_output(tmp_path: Path) -> None:
     session = tmp_path / "session"
     session.mkdir()
     (session / "marker").write_text("x", encoding="utf-8")
@@ -114,12 +114,12 @@ async def test_run_scrape_writes_json_output(tmp_path: Path) -> None:
             suggested_tags=["x"],
         ),
     ]
-    scraper = _FakeScraper(session_dir=session, items=items)
+    source = _FakeSource(session_dir=session, items=items)
     output = tmp_path / "out.json"
     context, _ = _make_context_and_page()
 
     with _patch_playwright(context):
-        result = await run_scrape(scraper, limit=None, output_path=output)
+        result = await run_fetch(source, limit=None, output_path=output)
 
     assert result.item_count == 2
     payload = json.loads(output.read_text(encoding="utf-8"))
@@ -129,16 +129,16 @@ async def test_run_scrape_writes_json_output(tmp_path: Path) -> None:
     context.close.assert_awaited_once()
 
 
-async def test_run_scrape_creates_parent_dir(tmp_path: Path) -> None:
+async def test_run_fetch_creates_parent_dir(tmp_path: Path) -> None:
     session = tmp_path / "session"
     session.mkdir()
     (session / "marker").write_text("x", encoding="utf-8")
-    scraper = _FakeScraper(session_dir=session, items=[])
+    source = _FakeSource(session_dir=session, items=[])
     output = tmp_path / "nested" / "deep" / "out.json"
     context, _ = _make_context_and_page()
 
     with _patch_playwright(context):
-        await run_scrape(scraper, limit=None, output_path=output)
+        await run_fetch(source, limit=None, output_path=output)
 
     assert output.exists()
 
@@ -147,41 +147,41 @@ async def test_run_scrape_creates_parent_dir(tmp_path: Path) -> None:
 
 
 async def test_run_import_cookies_unsupported_source_raises(tmp_path: Path) -> None:
-    scraper = _FakeScraper(session_dir=tmp_path / "session")
+    source = _FakeSource(session_dir=tmp_path / "session")
     with pytest.raises(SessionError, match="doesn't support cookie import"):
-        await run_import_cookies(scraper)
+        await run_import_cookies(source)
 
 
 async def test_run_import_cookies_empty_value_aborts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    scraper = _CookieScraper(session_dir=tmp_path / "session")
+    source = _CookieSource(session_dir=tmp_path / "session")
     monkeypatch.setattr("builtins.input", lambda *_a, **_kw: "   ")
     with pytest.raises(SessionError, match="Empty value for 'auth'"):
-        await run_import_cookies(scraper)
+        await run_import_cookies(source)
 
 
 async def test_run_import_cookies_verification_failure_raises(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    scraper = _CookieScraper(session_dir=tmp_path / "session", logged_in=False)
+    source = _CookieSource(session_dir=tmp_path / "session", logged_in=False)
     monkeypatch.setattr("builtins.input", lambda *_a, **_kw: "tok")
     context, _ = _make_context_and_page()
 
     with _patch_playwright(context), pytest.raises(SessionError, match="don't grant access"):
-        await run_import_cookies(scraper)
+        await run_import_cookies(source)
     context.add_cookies.assert_awaited_once()
 
 
 async def test_run_import_cookies_happy_path_adds_cookies(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    scraper = _CookieScraper(session_dir=tmp_path / "session", logged_in=True)
+    source = _CookieSource(session_dir=tmp_path / "session", logged_in=True)
     monkeypatch.setattr("builtins.input", lambda *_a, **_kw: "tok")
     context, _ = _make_context_and_page()
 
     with _patch_playwright(context):
-        await run_import_cookies(scraper)
+        await run_import_cookies(source)
 
     context.add_cookies.assert_awaited_once()
     [cookies] = context.add_cookies.call_args.args
@@ -202,7 +202,7 @@ async def test_run_import_cookies_happy_path_adds_cookies(
 async def test_run_login_session_not_detected_raises(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    scraper = _FakeScraper(session_dir=tmp_path / "session", logged_in=False)
+    source = _FakeSource(session_dir=tmp_path / "session", logged_in=False)
     monkeypatch.setattr("builtins.input", lambda *_a, **_kw: "")
     context, _ = _make_context_and_page()
 
@@ -210,16 +210,16 @@ async def test_run_login_session_not_detected_raises(
         _patch_playwright(context),
         pytest.raises(SessionError, match="Session not detected for 'fake'"),
     ):
-        await run_login(scraper)
+        await run_login(source)
 
 
 async def test_run_login_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    scraper = _FakeScraper(session_dir=tmp_path / "session", logged_in=True)
+    source = _FakeSource(session_dir=tmp_path / "session", logged_in=True)
     monkeypatch.setattr("builtins.input", lambda *_a, **_kw: "")
     context, page = _make_context_and_page()
 
     with _patch_playwright(context):
-        await run_login(scraper)
+        await run_login(source)
 
     page.goto.assert_awaited()
     context.close.assert_awaited_once()

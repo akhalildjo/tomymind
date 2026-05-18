@@ -9,10 +9,10 @@ from playwright.async_api import BrowserContext, Page
 from ..models import BookmarkItem
 
 
-class BaseScraper(ABC):
-    """Common interface every source scraper implements.
+class BaseSource(ABC):
+    """Common interface every source connector implements.
 
-    Subclasses set the class attributes and implement `is_logged_in` and `scrape`.
+    Subclasses set the class attributes and implement `is_logged_in` and `fetch`.
     """
 
     name: str
@@ -22,7 +22,7 @@ class BaseScraper(ABC):
     # (guest tokens, CSRF, etc.) that the login API expects. None = skip.
     warmup_url: str | None = None
     # Cookies the user can paste from a logged-in browser to skip the login
-    # flow entirely. Empty dict = the scraper doesn't support cookie import.
+    # flow entirely. Empty dict = the source doesn't support cookie import.
     # Maps cookie name to Playwright cookie attributes (httpOnly, sameSite, ...);
     # the runner fills in domain/path/secure based on `cookie_import_domain`.
     cookie_import_domain: str = ""
@@ -31,8 +31,8 @@ class BaseScraper(ABC):
     @property
     def session_path(self) -> Path:
         # Persistent Chrome profile dir for this source. Cookies, localStorage
-        # and the whole user_data_dir live here so anti-bot sees a returning
-        # Chrome user rather than a fresh Playwright launch.
+        # and the whole user_data_dir live here so the source recognizes a
+        # returning Chrome user across runs.
         return Path("sessions") / self.name
 
     @abstractmethod
@@ -40,7 +40,7 @@ class BaseScraper(ABC):
         """Return True if the current page indicates an active session."""
 
     @abstractmethod
-    async def scrape(self, page: Page, limit: int | None = None) -> AsyncIterator[BookmarkItem]:
+    async def fetch(self, page: Page, limit: int | None = None) -> AsyncIterator[BookmarkItem]:
         """Yield bookmarks one by one. Stop when limit is reached or source is exhausted."""
         if False:  # pragma: no cover
             yield  # makes the body a valid async generator
@@ -53,6 +53,6 @@ class BaseScraper(ABC):
         """Hook called after the first page is created and before any navigation.
 
         Use it for page-level patches that must be in place before the page
-        fetches any script — e.g. tf-playwright-stealth init scripts.
+        fetches any script — e.g. init scripts that need to run before page JS.
         """
         return None

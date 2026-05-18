@@ -62,10 +62,10 @@ Every source follows the same three steps, each triggered manually:
 
 ```
 ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
-│  1. Authenticate │ ─▶ │   2. Scrape      │ ─▶ │   3. Push        │
+│  1. Authenticate │ ─▶ │   2. Fetch       │ ─▶ │   3. Push        │
 │                  │    │                  │    │                  │
 │ paste cookies    │    │ headless browser │    │ POST /objects    │
-│ from your Chrome │    │ scrolls + parses │    │ with HS256 JWT   │
+│ from your Chrome │    │ loads + reads    │    │ with HS256 JWT   │
 │ (or manual login)│    │ your bookmarks   │    │ rate-limit aware │
 └──────────────────┘    └──────────────────┘    └──────────────────┘
        │                        │                        │
@@ -77,7 +77,7 @@ What that means in practice:
 
 - **You stay in control.** Nothing happens in the background. Every step
   is a command you type.
-- **Your data stays local** until you explicitly `push`. The scrape phase
+- **Your data stays local** until you explicitly `push`. The fetch phase
   writes a plain JSON file you can read, edit, or archive.
 - **mymind does the rest.** We only send URLs. Title, screenshot,
   preview, summary, tags — mymind extracts all of that server-side, just
@@ -100,7 +100,7 @@ cp .env.example .env
 
 # Per-source flow (X example):
 make import-cookies-x       # paste auth_token + ct0 from your logged-in Chrome
-make scrape-x               # writes output/x_bookmarks.json
+make fetch-x                # writes output/x_bookmarks.json
 make push-x                 # POSTs each URL to mymind
 ```
 
@@ -114,7 +114,7 @@ That's the whole thing.
 - **[uv](https://docs.astral.sh/uv/getting-started/installation/)** — fast,
   reproducible Python package manager
 - **A browser** where you're already logged into the source you want to
-  scrape (Chrome recommended)
+  read from (Chrome recommended)
 - **(optional) [GNU Make](https://www.gnu.org/software/make/)** — provides
   shortcut commands. On Windows: `winget install GnuWin32.Make` or
   `scoop install make`. Skip it if you prefer typing the full
@@ -151,7 +151,7 @@ make install
 Under the hood this runs:
 
 ```bash
-uv sync --extra scraper --extra stealth --extra push --extra dev
+uv sync --extra source --extra automation --extra push --extra dev
 uv run playwright install chromium
 ```
 
@@ -159,9 +159,10 @@ Don't have Make? Run the two commands above directly.
 
 ### Optional: install real Google Chrome (recommended)
 
-Playwright ships with Chromium, but some anti-bot stacks fingerprint it.
-Using real Google Chrome works better. If you already have Chrome installed
-on your system, Playwright will find it automatically. Otherwise:
+Playwright ships with Chromium, but some sources detect it as a non-real
+browser. Using real Google Chrome works better. If you already have
+Chrome installed on your system, Playwright will find it automatically.
+Otherwise:
 
 ```bash
 make install-chrome
@@ -210,8 +211,8 @@ on the secret is base64 padding and must be preserved.
 
 ### Step 1: get a session
 
-X aggressively blocks automated browsers at login. The workaround is to
-copy your existing session cookies from a Chrome window where you're
+X currently doesn't accept automated browser logins. The workaround is
+to copy your existing session cookies from a Chrome window where you're
 already logged in.
 
 ```bash
@@ -232,7 +233,7 @@ Paste each at the prompt. The tool verifies your session before exiting,
 so a wrong or expired value fails fast instead of mysteriously later.
 
 > [!TIP]
-> Cookies have a 30-day lifetime by default. When the scraper starts
+> Cookies have a 30-day lifetime by default. When the tool starts
 > reporting "Session expired", re-run `make import-cookies-x` to refresh.
 
 #### Alternative: manual login
@@ -247,10 +248,10 @@ make login-x
 This opens a visible Chromium window. Log in normally, then return to
 the terminal and press **ENTER** to save the session.
 
-### Step 2: scrape
+### Step 2: fetch
 
 ```bash
-make scrape-x
+make fetch-x
 ```
 
 You'll see progress streaming live:
@@ -266,9 +267,9 @@ Done. 412 bookmarks → output/x_bookmarks.json
 For more control:
 
 ```bash
-uv run tomymind scrape x --limit 100         # cap to first 100
-uv run tomymind scrape x --show-browser      # watch the browser work
-uv run tomymind scrape x --output ./my.json  # custom output path
+uv run tomymind fetch x --limit 100         # cap to first 100
+uv run tomymind fetch x --show-browser      # watch the browser work
+uv run tomymind fetch x --output ./my.json  # custom output path
 ```
 
 ### Step 3: push to mymind
@@ -278,7 +279,7 @@ make push-x
 ```
 
 ```
-  412 scraped, 0 already pushed, 412 to send.
+  412 fetched, 0 already pushed, 412 to send.
   [   1/412] NEW     https://x.com/jack/status/1234567890
   [   2/412] NEW     https://x.com/openai/status/1234567891
   [   3/412] EXISTED https://x.com/somefriend/status/9999999
@@ -309,10 +310,10 @@ The pusher automatically:
 tomymind sources                             List supported sources
 tomymind login <source>                      Manual login flow (visible browser)
 tomymind import-cookies <source>             Paste cookies from a logged-in browser
-tomymind scrape <source> [options]           Scrape bookmarks to JSON
+tomymind fetch <source> [options]            Fetch bookmarks to JSON
 tomymind push <source> [options]             Push JSON to mymind
 
-scrape options:
+fetch options:
   --limit N                                  Stop after N bookmarks
   --show-browser                             Run with a visible browser window
   --output PATH                              Custom output JSON path
@@ -325,7 +326,7 @@ push options:
 Or via Make:
 
 ```
-make import-cookies-x      make scrape-x      make push-x
+make import-cookies-x      make fetch-x       make push-x
 make login-x               make check         make help
 ```
 
@@ -338,13 +339,13 @@ Everything sensitive is stored locally and is gitignored:
 | File / folder | Contents |
 |---|---|
 | `sessions/<source>/` | Persistent Chrome profile (cookies, localStorage) |
-| `output/<source>_bookmarks.json` | Scraped bookmarks |
+| `output/<source>_bookmarks.json` | Fetched bookmarks |
 | `output/.pushed_<source>.json` | Local ledger of already-pushed IDs |
 | `.env` | Your mymind API credentials |
 
 The tool makes network calls only to:
 
-1. The source's website during scraping (same traffic as a normal browser visit)
+1. The source's website during the fetch (same traffic as a normal browser visit)
 2. `https://api.mymind.com/objects` during push
 
 No analytics, no telemetry, no third-party services.
@@ -375,9 +376,9 @@ Chromium. If you want the warning gone, install real Google Chrome from
 </details>
 
 <details>
-<summary><b>Scrape finishes with 0 items</b></summary>
+<summary><b>Fetch finishes with 0 items</b></summary>
 
-- Your session may have expired mid-scrape. Re-run `make import-cookies-x`.
+- Your session may have expired mid-run. Re-run `make import-cookies-x`.
 - The source might have changed its HTML structure. Open an issue with
   the source name and your output.
 
@@ -417,16 +418,16 @@ the ledger has your progress.
 ## Adding a new source
 
 The architecture is shaped so new sources only touch
-`src/tomymind/scrapers/`. Briefly:
+`src/tomymind/sources/`. Briefly:
 
-1. Create `src/tomymind/scrapers/<name>.py` with a class subclassing
-   `BaseScraper`. Implement `is_logged_in()` and `scrape()`.
-2. Register it in `src/tomymind/scrapers/__init__.py`.
-3. Optionally declare `cookie_import_specs` if the source has an
-   anti-automation login flow.
+1. Create `src/tomymind/sources/<name>.py` with a class subclassing
+   `BaseSource`. Implement `is_logged_in()` and `fetch()`.
+2. Register it in `src/tomymind/sources/__init__.py`.
+3. Optionally declare `cookie_import_specs` if the source doesn't accept
+   automated browser logins.
 
 See [`CLAUDE.md`](CLAUDE.md) for the full contract and conventions, or
-[`src/tomymind/scrapers/x.py`](src/tomymind/scrapers/x.py) as a worked
+[`src/tomymind/sources/x.py`](src/tomymind/sources/x.py) as a worked
 reference.
 
 External PRs aren't open yet — see [Contributing](#contributing).
@@ -437,15 +438,15 @@ External PRs aren't open yet — see [Contributing](#contributing).
 
 ### Sources
 
-- [x] **X (Twitter)** scraper — `/i/bookmarks` with infinite scroll
-- [ ] **Instagram** scraper — `/<user>/saved/`
-- [ ] **Pinterest** scraper — `/<user>/_saved/`
+- [x] **X (Twitter)** source — `/i/bookmarks` with infinite scroll
+- [ ] **Instagram** source — `/<user>/saved/`
+- [ ] **Pinterest** source — `/<user>/_saved/`
 - [ ] **YouTube** "Watch later" → mymind
 
 ### Core
 
-- [x] Repo skeleton, base scraper runner, output schema
-- [x] Cookie-import flow for sources that refuse automated login
+- [x] Repo skeleton, base source runner, output schema
+- [x] Cookie-import flow for sources that don't accept automated logins
 - [x] `tomymind push` — HS256 JWT signer, rate-limit-aware client,
       resumable ledger
 
