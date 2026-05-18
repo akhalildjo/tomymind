@@ -250,6 +250,15 @@ this; this section is the spec it follows.
   follow PR-based workflows (no direct commits to `main`).
 - Keep PRs small and self-contained: one source / one CLI command / one
   bug fix per PR. `main` stays green.
+- **Always resolve review conversations once they're addressed.** The
+  `main` branch ruleset requires every conversation to be resolved
+  before merge; an unresolved Copilot / reviewer comment will block
+  the PR with "A conversation must be resolved before this pull
+  request can be merged." Resolve via the GitHub UI ("Resolve
+  conversation") or the MCP `resolve_review_thread` tool — including
+  threads you skip intentionally, with a one-line reply explaining
+  why. Never bypass the rule with admin merge unless explicitly
+  asked.
 - An earlier iteration scaffolded a NATS JetStream + Docker importer
   architecture for an automated event-driven flow; that path was dropped
   in favor of the simpler "manual CLI per source" flow you see today. If
