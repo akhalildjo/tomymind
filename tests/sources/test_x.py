@@ -133,3 +133,71 @@ class TestFetchTimeoutDiagnostic:
         with pytest.raises(RuntimeError, match="browser crashed"):
             async for _ in source.fetch(page):
                 pass
+
+
+class TestFetchPacing:
+    """Lock in the v0.1.1 anti-automation pacing: initial dwell, jittered
+    scroll pause, jittered scroll distance. Without this test, the
+    sleep/evaluate wiring could regress (e.g. somebody reverting to a
+    fixed pause) and the only existing tests cover the parse helper and
+    the timeout early-exit, neither of which would catch it."""
+
+    async def test_jittered_pacing_and_yields_tweet(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        source = XSource()
+        # One non-yielding pass is enough to end the loop and exercise
+        # the scroll step, while keeping the test cheap.
+        source._idle_scroll_limit = 1
+
+        # Pin randomness: always return the upper bound of each range so
+        # the test asserts exact values without depending on call order.
+        def fake_uniform(lo: float, hi: float) -> float:
+            return hi
+
+        monkeypatch.setattr("tomymind.sources.x.random.uniform", fake_uniform)
+
+        sleeps: list[float] = []
+
+        async def fake_sleep(sec: float) -> None:
+            sleeps.append(sec)
+
+        monkeypatch.setattr("tomymind.sources.x.asyncio.sleep", fake_sleep)
+
+        anchor = MagicMock()
+        anchor.get_attribute = AsyncMock(return_value="/jack/status/12345")
+        article = MagicMock()
+        article.query_selector_all = AsyncMock(return_value=[anchor])
+
+        evaluate_calls: list[str] = []
+
+        async def fake_evaluate(expr: str) -> int:
+            evaluate_calls.append(expr)
+            # Stable scrollHeight across passes → idle increments on pass 2.
+            return 1000
+
+        page = MagicMock()
+        page.url = "https://x.com/i/bookmarks"
+        page.goto = AsyncMock()
+        page.wait_for_selector = AsyncMock()
+        page.query_selector_all = AsyncMock(return_value=[article])
+        page.evaluate = AsyncMock(side_effect=fake_evaluate)
+
+        items = [item async for item in source.fetch(page)]
+
+        # Tweet was yielded unchanged by the pacing logic.
+        assert len(items) == 1
+        assert items[0].source_item_id == "12345"
+        assert str(items[0].url) == "https://x.com/jack/status/12345"
+
+        # Pass 1 yields the tweet (no idle increment); pass 2 sees the
+        # same tweet (skipped via seen_ids) on an unchanged height
+        # (idle=1, loop exits). So we get 1 initial dwell + 2 scroll
+        # pauses.
+        dwell_hi = source._initial_dwell_range_sec[1]
+        pause_hi = source._scroll_pause_range_sec[1]
+        assert sleeps == [dwell_hi, pause_hi, pause_hi]
+
+        # Both scroll iterations issued a randomized scrollBy.
+        scroll_calls = [c for c in evaluate_calls if "scrollBy" in c]
+        distance_hi = source._scroll_distance_range[1]
+        expected = f"window.scrollBy(0, window.innerHeight * {distance_hi})"
+        assert scroll_calls == [expected, expected]
