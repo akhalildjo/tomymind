@@ -7,6 +7,19 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-05-19
+
+### Fixed
+
+- X bookmarks fetch was triggering X's "automated request" warning
+  (`Cette demande semble être automatisée…`) on the account, blocking
+  subsequent manual posts/likes/retweets. The scroll loop now jitters
+  both the inter-scroll pause (2.0–3.5s instead of a fixed 1.8s) and the
+  per-scroll distance (0.7–1.3× viewport height instead of a fixed 2×),
+  and dwells 4.0–6.5s on `/i/bookmarks` before the first scroll, so the
+  session no longer presents a mechanically uniform fingerprint. Fixes
+  [#15](https://github.com/akhalildjo/tomymind/issues/15).
+
 ## [0.1.0] — 2026-05-17
 
 Initial public release.
@@ -58,5 +71,6 @@ Initial public release.
   (defaults to `None` → real httpx default) for test injection. No
   existing call sites change.
 
-[Unreleased]: https://github.com/akhalildjo/tomymind/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/akhalildjo/tomymind/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/akhalildjo/tomymind/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/akhalildjo/tomymind/releases/tag/v0.1.0

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import random
 import re
 import sys
 from collections.abc import AsyncIterator
@@ -37,7 +38,12 @@ class XSource(BaseSource):
 
     # Stop after this many consecutive scrolls that don't reveal new content.
     _idle_scroll_limit = 5
-    _scroll_pause_sec = 1.8
+    # Pacing knobs. The combined effect (jittered pause, jittered distance,
+    # an initial reading dwell) breaks the mechanically uniform cadence
+    # that X's automation heuristics latch on to.
+    _scroll_pause_range_sec = (2.0, 3.5)
+    _scroll_distance_range = (0.7, 1.3)  # multiples of viewport height
+    _initial_dwell_range_sec = (4.0, 6.5)
 
     async def on_page_ready(self, page: Page) -> None:
         # X's login flow doesn't accept default automated browsers. The
@@ -84,6 +90,10 @@ class XSource(BaseSource):
             )
             return
 
+        # Dwell on the page before the first scroll so the session doesn't
+        # look like "open URL, instantly start auto-scrolling".
+        await asyncio.sleep(random.uniform(*self._initial_dwell_range_sec))
+
         seen_ids: set[str] = set()
         idle = 0
         last_height = 0
@@ -125,8 +135,9 @@ class XSource(BaseSource):
             else:
                 idle = 0
             last_height = height
-            await page.evaluate("window.scrollBy(0, window.innerHeight * 2)")
-            await asyncio.sleep(self._scroll_pause_sec)
+            distance = random.uniform(*self._scroll_distance_range)
+            await page.evaluate(f"window.scrollBy(0, window.innerHeight * {distance})")
+            await asyncio.sleep(random.uniform(*self._scroll_pause_range_sec))
 
     @staticmethod
     def _parse_tweet_href(href: str) -> tuple[str, str] | None:
