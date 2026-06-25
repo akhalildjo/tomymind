@@ -356,9 +356,9 @@ Required status checks on A and B are every job name produced by
 `ci.yml`: `Lint (ruff)`, the nine `Test (<os> / Python <version>)`
 matrix cells, the three `Browser smoke (<os>)` cells, and
 `Build distribution`. **Add new cells to the rulesets when the CI matrix
-grows**, otherwise they don't gate the merge. (The `Browser smoke (<os>)`
-cells were added with the playwright guard — if they aren't in the rulesets
-yet, add them so a broken browser bump can't merge.)
+grows**, otherwise they don't gate the merge. (The three `Browser smoke (<os>)`
+cells are already required on A and B — they were added alongside the
+playwright guard so a broken browser bump can't merge.)
 
 Code security features (free on public repos, all ON):
 
