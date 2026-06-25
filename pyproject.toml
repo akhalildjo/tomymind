@@ -46,7 +46,7 @@ Changelog = "https://github.com/akhalildjo/tomymind/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 source = [
-    "playwright>=1.49",
+    "playwright>=1.60.0",
     "typer>=0.13",
     "python-dotenv>=1.0",
 ]
