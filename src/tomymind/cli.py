@@ -103,7 +103,7 @@ def push(
     # Lazy imports: pyjwt + httpx + python-dotenv only kick in for this
     # command, so users who only fetch don't need the `push` extra.
     try:
-        from dotenv import load_dotenv
+        from dotenv import find_dotenv, load_dotenv
 
         from .mymind_client import MymindCreds
         from .push import run_push
@@ -114,7 +114,14 @@ def push(
         )
         raise typer.Exit(code=2) from exc
 
-    load_dotenv()
+    # Load .env from the directory the user runs `tomymind` in (and its
+    # parents), not from wherever the package lives. Bare load_dotenv() starts
+    # find_dotenv()'s search at this file's location — which in a pip-installed
+    # tree is site-packages, so a user's project-local .env would never be
+    # picked up. usecwd=True searches from the current working directory
+    # instead; find_dotenv returns "" when nothing is found, which load_dotenv
+    # treats as a no-op.
+    load_dotenv(find_dotenv(usecwd=True))
     kid = os.environ.get("MYMIND_API_KEY_ID")
     secret = os.environ.get("MYMIND_API_KEY_SECRET")
     if not kid or not secret:

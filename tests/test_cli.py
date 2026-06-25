@@ -40,13 +40,36 @@ def test_unknown_source_exits_2(command: str) -> None:
 def test_push_missing_env_vars_exits_2(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("MYMIND_API_KEY_ID", raising=False)
     monkeypatch.delenv("MYMIND_API_KEY_SECRET", raising=False)
-    # Run from a clean directory so a stray .env in the repo can't supply the vars.
+    # Run from a clean directory so a stray .env can't supply the vars. This
+    # only actually isolates the test because push loads .env via
+    # find_dotenv(usecwd=True); bare load_dotenv() would walk up from the
+    # package dir and pick up the repo's own .env regardless of cwd.
     monkeypatch.chdir(tmp_path)
 
     result = _runner.invoke(app, ["push", "x"])
 
     assert result.exit_code == 2
     assert "MYMIND_API_KEY_ID" in result.stderr
+
+
+def test_push_loads_dotenv_from_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # The creds live ONLY in a .env in the working directory, not in the
+    # process environment — so reaching run_push proves the push command loads
+    # .env from where the user runs it, not from the installed package dir.
+    monkeypatch.delenv("MYMIND_API_KEY_ID", raising=False)
+    monkeypatch.delenv("MYMIND_API_KEY_SECRET", raising=False)
+    (tmp_path / ".env").write_text(
+        f"MYMIND_API_KEY_ID=k\nMYMIND_API_KEY_SECRET={_FAKE_SECRET_B64}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    with patch("tomymind.push.run_push", new=AsyncMock(side_effect=SessionError("boom"))):
+        result = _runner.invoke(app, ["push", "x"])
+
+    # Past the missing-creds guard (that would be exit 2) and into run_push.
+    assert result.exit_code == 1
+    assert "error: boom" in result.stderr
 
 
 def test_login_session_error_exits_1() -> None:
