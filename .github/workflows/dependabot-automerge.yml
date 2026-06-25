@@ -1,0 +1,46 @@
+name: Dependabot auto-merge
+
+# Auto-merge only the low-risk Dependabot PRs once every required status check
+# is green. Scope (decided deliberately — see CLAUDE.md "Dependabot auto-merge"):
+#
+#   * dev-tooling group (ruff, pytest*) — tooling only, never ships to users
+#   * actions group                     — GitHub Actions bumps, which CI itself
+#                                          re-validates by running the workflows
+#   * any patch-level bump              — semver patch of any dependency
+#
+# Everything else — minor/major bumps of runtime deps such as playwright,
+# pydantic, httpx, typer — is left for a human to glance at, because CI cannot
+# fully prove a runtime dependency stays behaviour-compatible. The runtime
+# guards added alongside this workflow (tests/test_models.py for pydantic,
+# tests/sources/test_x_browser.py for playwright + playwright-stealth) mean an
+# auto-merged patch that actually breaks those deps goes red and `--auto` keeps
+# it open instead of merging it.
+
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  dependabot-auto-merge:
+    # Only act on PRs opened by Dependabot itself.
+    if: ${{ github.actor == 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@v2
+
+      - name: Enable auto-merge for low-risk updates
+        if: >-
+          ${{ steps.meta.outputs.update-type == 'version-update:semver-patch'
+              || steps.meta.outputs.dependency-group == 'dev-tooling'
+              || steps.meta.outputs.dependency-group == 'actions' }}
+        # `--auto` queues the merge; GitHub still waits for all required checks
+        # (and the up-to-date-branch rule) before it actually merges, and
+        # Dependabot rebases the PR if the base branch moves first.
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

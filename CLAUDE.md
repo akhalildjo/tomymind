@@ -206,6 +206,31 @@ because `playwright_stealth` relies on `page.add_init_script`.
 - Tests go under `tests/` mirroring `src/tomymind/` (e.g.
   `tests/sources/test_x.py`). `asyncio_mode=auto` is already set, so use
   `async def test_*` freely.
+- **One hermetic browser smoke test is allowed** (and only one path is needed):
+  `tests/sources/test_x_browser.py` launches a real headless Chromium but
+  serves the bookmarks DOM from a **local fixture via `page.route`** — it never
+  hits real x.com, so it doesn't violate the no-live-E2E rule above. Its job is
+  to exercise the playwright + playwright-stealth integration (`on_page_ready`,
+  `goto`, the selector/scroll loop) so a dependency bump that breaks the live
+  browser path goes red. It's marked `@pytest.mark.browser` and **deselected by
+  default** (`addopts = -m 'not browser'`), since it needs
+  `uv run playwright install chromium`. Run it locally with
+  `uv run pytest -m browser`; CI runs it in the dedicated `browser-smoke` job.
+- **`tests/test_models.py` guards pydantic**: it round-trips `BookmarkItem` /
+  `FetchResult` through aliases, `HttpUrl` and `model_dump_json` so a pydantic
+  upgrade that shifts alias or URL-serialization behaviour fails there instead
+  of silently corrupting output JSON.
+
+### Dependabot auto-merge
+
+`.github/workflows/dependabot-automerge.yml` enables GitHub auto-merge (squash)
+for **low-risk Dependabot PRs only**: the `dev-tooling` group, the `actions`
+group, and any `semver-patch` bump. Everything else — minor/major bumps of
+runtime deps (playwright, pydantic, httpx, typer) — is left for a human to
+glance at. `--auto` means a required check going red keeps even an auto-scoped
+PR open, and the pydantic / browser-smoke guards above are what make an
+auto-merged patch of those deps actually safe. Auto-merge depends on the repo
+setting **Allow auto-merge** being ON.
 
 ## mymind API
 
@@ -329,8 +354,11 @@ not the deprecated "Branch protection rules" UI):
 
 Required status checks on A and B are every job name produced by
 `ci.yml`: `Lint (ruff)`, the nine `Test (<os> / Python <version>)`
-matrix cells, and `Build distribution`. **Add new cells to the rulesets
-when the CI matrix grows**, otherwise they don't gate the merge.
+matrix cells, the three `Browser smoke (<os>)` cells, and
+`Build distribution`. **Add new cells to the rulesets when the CI matrix
+grows**, otherwise they don't gate the merge. (The `Browser smoke (<os>)`
+cells were added with the playwright guard — if they aren't in the rulesets
+yet, add them so a broken browser bump can't merge.)
 
 Code security features (free on public repos, all ON):
 

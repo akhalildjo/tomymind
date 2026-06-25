@@ -83,10 +83,50 @@ jobs:
       - name: CLI smoke test (help)
         run: uv run tomymind --help
 
+  browser-smoke:
+    # The unit matrix mocks the Page object and deliberately skips the ~300 MB
+    # browser download. This job is the counterpart: it launches a real
+    # headless Chromium against a local fixture (no network) so a playwright or
+    # playwright-stealth bump that breaks the live browser path is caught here.
+    # Single Python (3.12) across the three supported OSes — the breakages we
+    # care about (API changes, stealth incompatibility) are OS-shaped, not
+    # Python-version-shaped.
+    name: Browser smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --python 3.12 --extra source --extra automation --extra push --extra dev
+
+      - name: Install Chromium with system deps (Linux)
+        if: runner.os == 'Linux'
+        run: uv run playwright install --with-deps chromium
+
+      - name: Install Chromium (macOS / Windows)
+        if: runner.os != 'Linux'
+        run: uv run playwright install chromium
+
+      - name: Run browser smoke test
+        run: uv run pytest -v -m browser
+
   build:
     name: Build distribution
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint, test, browser-smoke]
     steps:
       - uses: actions/checkout@v7
 

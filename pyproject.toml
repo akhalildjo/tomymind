@@ -91,3 +91,11 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# `browser` marks tests that launch a real headless Chromium (today only
+# tests/sources/test_x_browser.py). They need `playwright install chromium`,
+# so the default run and the unit-test CI matrix deselect them here; the
+# dedicated `browser-smoke` CI job re-runs them with `-m browser`.
+addopts = "-m 'not browser'"
+markers = [
+    "browser: launches a real headless Chromium; needs `playwright install chromium`.",
+]
