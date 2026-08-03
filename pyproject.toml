@@ -47,7 +47,7 @@ Changelog = "https://github.com/akhalildjo/tomymind/blob/main/CHANGELOG.md"
 [project.optional-dependencies]
 source = [
     "playwright>=1.60.0",
-    "typer>=0.26.8",
+    "typer>=0.27.0",
     "python-dotenv>=1.0",
 ]
 automation = ["tf-playwright-stealth>=1.1.0"]
